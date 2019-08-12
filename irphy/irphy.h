@@ -3,21 +3,11 @@
 #include <stdint.h>
 
 #include "../util/time.h"
+#include "../irhal/irhal.h"
 
 typedef void (*irphy_cd_cb)(bool carrier_detected, void* priv);
 
-struct irphy_hal_ops;
-
-struct irphy {
-  struct irhal* hal;
-  struct irphy_hal_ops hal_ops;
-  void* hal_priv;
-  struct {
-    void* priv;
-    irphy_cd_cb cb;
-    int timer;
-  } cd;
-};
+struct irphy;
 
 typedef void (*irphy_rx_cb)(struct irphy* phy, const uint8_t* data, size_t len);
 typedef void (*irphy_carrier_cb)(struct irphy* phy);
@@ -42,5 +32,16 @@ struct irphy_hal_ops {
   irphy_hal_cd_disable            cd_disable;
 };
 
-int irphy_init(struct irhal* hal, const struct irphy_hal_ops* hal_ops);
-int irphy_run_cd(struct irphy* phy, time_ns_t duration, const irphy_cd_cb cb, void* priv);
+struct irphy {
+  struct irhal* hal;
+  struct irphy_hal_ops hal_ops;
+  void* hal_priv;
+  struct {
+    void* priv;
+    irphy_cd_cb cb;
+    int timer;
+  } cd;
+};
+
+int irphy_init(struct irphy* phy, struct irhal* hal, const struct irphy_hal_ops* hal_ops);
+int irphy_run_cd(struct irphy* phy, time_ns_t* duration, const irphy_cd_cb cb, void* priv);

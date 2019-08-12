@@ -34,27 +34,26 @@ void irhal_now(struct irhal* hal, time_ns_t* t) {
   *t = hal->last_time;
 }
 
-static void irhal_alarm_cb(struct irhal* hal);
+static void irhal_alarm_callback(struct irhal* hal);
 
 static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t* assumed_now) {
-  int timer;
-  int err;
+  int i;
   time_ns_t earliest_deadline = TIME_NS_MAX;
   time_ns_t now;
   uint64_t delta_ns;
   if(assumed_now) {
-    now = *now;
+    now = *assumed_now;
   } else {
     irhal_now(hal, &now);
   }
-  for(timer = 0; timer < hal->num_timers; i++) {
+  for(i = 0; i < hal->num_timers; i++) {
     struct irhal_timer* timer = &hal->timers[i];
     // Ignore timers that are not running
     if(!timer->enabled) {
       continue;
     }
     if(fire_cbs) {
-      if(TIME_NS_LE(timer->deadline, now) {
+      if(TIME_NS_LE(timer->deadline, now)) {
         timer->enabled = false;
         timer->cb(timer->priv);
         continue;
@@ -64,7 +63,7 @@ static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t
     // It might be a good idea to terminate here, the
     // incoming timer event will cause recalculation
     // anyways
-    if(TIME_NS_LT(timer->deadline, now) {
+    if(TIME_NS_LT(timer->deadline, now)) {
       continue;
     }
     if(TIME_NS_LT(timer->deadline, earliest_deadline)) {
@@ -72,13 +71,13 @@ static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t
     }
   }
   // Check if timeout is still TIME_NS_MAX, then there is nothing to do
-  if(earliest_deadline == TIME_NS_MAX) {
+  if(time_is_max(earliest_deadline)) {
     // No timer required
     return 0;
   }
 
   // Check if timer is already set for calculated time
-  if(earliest_deadline == hal->current_timer_deadline) {
+  if(TIME_NS_EQ(earliest_deadline, hal->current_timer_deadline)) {
     // Timer correctly set, nothing to do
     return 0;
   }
@@ -101,16 +100,16 @@ static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t
     delta_ns = hal->max_time_val / 2ULL;
   }
 
-  return hal->hal_ops.set_alarm(hal, irhal_alarm_cb, delta_ns, hal->priv);
+  return hal->hal_ops.set_alarm(hal, irhal_alarm_callback, delta_ns, hal->priv);
 }
 
-static void irhal_alarm_cb(struct irhal* hal) {
+static void irhal_alarm_callback(struct irhal* hal) {
   time_ns_t now;
   irhal_now(hal, &now);
   irhal_recalculate_timeout(hal, true, &now);
 }
 
-static int irhal_set_timer_(struct irhal* hal, struct irhal_timer* timer, time_ns_t timeout, irhal_timer_cb cb, void* priv) {
+static int irhal_set_timer_(struct irhal* hal, struct irhal_timer* timer, time_ns_t* timeout, irhal_timer_cb cb, void* priv) {
   time_ns_t now;
   timer->enabled = true;
   timer->cb = cb;
@@ -135,24 +134,35 @@ static int irhal_request_timers_(struct irhal* hal) {
   return 0;
 }
 
-int irhal_set_timer(struct irhal* hal, time_ns_t timeout, irhal_timer_cb cb, void* priv) {
-  int timer;
+int irhal_set_timer(struct irhal* hal, time_ns_t* timeout, irhal_timer_cb cb, void* priv) {
+  int i;
   int err;
-  for(timer = 0; timer < hal->num_timers; i++) {
+  for(i = 0; i < hal->num_timers; i++) {
     struct irhal_timer* timer = &hal->timers[i];
     if(!timer->enabled) {
-      return irhal_set_timer_(hal, timer, timeout, cb, priv);
+      err = irhal_set_timer_(hal, timer, timeout, cb, priv);
+      if(err) {
+        return err;
+      }
+      return i;
     }
   }
   err = irhal_request_timers_(hal);
   if(err) {
     return err;
   }
-  return irhal_set_timer(hal, timeout, cb);
+  return irhal_set_timer(hal, timeout, cb, priv);
 }
 
-int irhal_clear_timer(struct irhal* hal, int timer) {
-  if(timer < 0 || timer >= hal->num_timers) {
+int irhal_clear_timer(struct irhal* hal, int timerid) {
+  struct irhal_timer* timer;
+  if(timerid < 0 || timerid >= hal->num_timers) {
     return -EINVAL;
   }
+  timer = &hal->timers[timerid];
+  if(!timer->enabled) {
+    return -EINVAL;
+  }
+  timer->enabled = false;
+  return irhal_recalculate_timeout(hal, false, NULL);
 }

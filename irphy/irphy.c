@@ -2,15 +2,15 @@
 
 #include "irphy.h"
 
-int irphy_init(struct irhal* hal, const struct irphy_hal_ops* hal_ops) {
-  memset(hal, 0, sizeof(*hal));
-  hal->hal_ops = *hal_ops;
+int irphy_init(struct irphy* phy, struct irhal* hal, const struct irphy_hal_ops* hal_ops) {
+  memset(phy, 0, sizeof(*phy));
+  phy->hal = hal;
+  phy->hal_ops = *hal_ops;
   return 0;
 }
 
-static void irphy_cd_detected(void* priv) {
-  struct irphy* phy = priv;
-  irhal_clear_timer(phy->hal, phy->cb.timer);
+static void irphy_cd_detected(struct irphy* phy) {
+  irhal_clear_timer(phy->hal, phy->cd.timer);
   phy->cd.timer = IRHAL_TIMER_INVALID;
   phy->hal_ops.cd_disable(phy->cd.priv);
   phy->cd.cb(true, phy->cd.priv);
@@ -23,11 +23,11 @@ static void irphy_cd_timeout(void* priv) {
   phy->cd.cb(false, phy->cd.priv);
 }
 
-int irphy_run_cd(struct irphy* phy, time_ns_t duration, const irphy_cd_cb cb, void* priv) {
+int irphy_run_cd(struct irphy* phy, time_ns_t* duration, const irphy_cd_cb cb, void* priv) {
   int err;
   phy->cd.cb = cb;
   phy->cd.priv = priv;
-  err = irhal_start_timer(phy->hal, duration, irphy_cd_timeout, phy);
+  err = irhal_set_timer(phy->hal, duration, irphy_cd_timeout, phy);
   if(err < 0) {
     goto fail;
   }
