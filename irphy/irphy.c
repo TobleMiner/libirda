@@ -23,7 +23,7 @@ static void irphy_cd_timeout(void* priv) {
   phy->cd.cb(false, phy->cd.priv);
 }
 
-int irphy_run_cd(struct irphy* phy, time_ns_t* duration, const irphy_cd_cb cb, void* priv) {
+int irphy_run_cd(struct irphy* phy, const time_ns_t* duration, const irphy_cd_cb cb, void* priv) {
   int err;
   phy->cd.cb = cb;
   phy->cd.priv = priv;

@@ -121,7 +121,7 @@ static void irhal_alarm_callback(struct irhal* hal) {
   irhal_recalculate_timeout(hal, true, &now);
 }
 
-static int irhal_set_timer_(struct irhal* hal, struct irhal_timer* timer, time_ns_t* timeout, irhal_timer_cb cb, void* priv) {
+static int irhal_set_timer_(struct irhal* hal, struct irhal_timer* timer, const time_ns_t* timeout, irhal_timer_cb cb, void* priv) {
   time_ns_t now;
   timer->enabled = true;
   timer->cb = cb;
