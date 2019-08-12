@@ -4,6 +4,8 @@
 
 #include "irhal.h"
 
+#define LOCAL_TAG "IRDA HAL"
+
 int irhal_init(struct irhal* hal, struct irhal_hal_ops* hal_ops, uint64_t max_time_val, uint64_t timescale) {
   memset(hal, 0, sizeof(*hal));
   hal->max_time_val = max_time_val;
@@ -41,19 +43,23 @@ static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t
   time_ns_t earliest_deadline = TIME_NS_MAX;
   time_ns_t now;
   uint64_t delta_ns;
+  IRHAL_LOGV(hal, "Recalculating timeouts");
   if(assumed_now) {
     now = *assumed_now;
   } else {
     irhal_now(hal, &now);
   }
+  IRHAL_LOGV(hal, "Now is sec = %lu, nsec = %lu", now.sec, now.nsec);
   for(i = 0; i < hal->num_timers; i++) {
     struct irhal_timer* timer = &hal->timers[i];
     // Ignore timers that are not running
     if(!timer->enabled) {
       continue;
     }
+    IRHAL_LOGV(hal, "Timer %d is enabled, deadline: sec = %lu, nsec = %lu", i, timer->deadline.sec, timer->deadline.nsec);
     if(fire_cbs) {
       if(TIME_NS_LE(timer->deadline, now)) {
+        IRHAL_LOGV(hal, "  Firing timer %d", i);
         timer->enabled = false;
         timer->cb(timer->priv);
         continue;
@@ -64,6 +70,7 @@ static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t
     // incoming timer event will cause recalculation
     // anyways
     if(TIME_NS_LT(timer->deadline, now)) {
+      IRHAL_LOGV(hal, "  Timer %d is due", i);
       continue;
     }
     if(TIME_NS_LT(timer->deadline, earliest_deadline)) {
@@ -72,12 +79,14 @@ static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t
   }
   // Check if timeout is still TIME_NS_MAX, then there is nothing to do
   if(time_is_max(earliest_deadline)) {
+    IRHAL_LOGV(hal, "Recalculation finished, no timer required");
     // No timer required
     return 0;
   }
 
   // Check if timer is already set for calculated time
   if(TIME_NS_EQ(earliest_deadline, hal->current_timer_deadline)) {
+    IRHAL_LOGV(hal, "Recalculation finished, no new timer required");
     // Timer correctly set, nothing to do
     return 0;
   }
@@ -86,7 +95,9 @@ static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t
   // We need to calculate the delta t to the earliest deadline
 
   time_sub(&earliest_deadline, &now);
+  IRHAL_LOGV(hal, "Delta to deadline is sec = %lu, nsec = %lu", earliest_deadline.sec, earliest_deadline.nsec);
   delta_ns = time_to_ns(&earliest_deadline);
+  IRHAL_LOGV(hal, "Recalculation finished, next timer fires in %llu ns", delta_ns);
 
   delta_ns += hal->timescale - 1ULL;
   // Convert into HAL API timescale
@@ -106,6 +117,7 @@ static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t
 static void irhal_alarm_callback(struct irhal* hal) {
   time_ns_t now;
   irhal_now(hal, &now);
+  IRHAL_LOGV(hal, "Got alarm callback");
   irhal_recalculate_timeout(hal, true, &now);
 }
 
@@ -137,6 +149,7 @@ static int irhal_request_timers_(struct irhal* hal) {
 int irhal_set_timer(struct irhal* hal, time_ns_t* timeout, irhal_timer_cb cb, void* priv) {
   int i;
   int err;
+  IRHAL_LOGV(hal, "Setting up timer for sec = %lu sec, nsec = %lu", timeout->sec, timeout->nsec);
   for(i = 0; i < hal->num_timers; i++) {
     struct irhal_timer* timer = &hal->timers[i];
     if(!timer->enabled) {
