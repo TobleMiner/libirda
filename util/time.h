@@ -8,8 +8,8 @@
 #define TIME_NS_MAX { .sec = 0xFFFFFFFF, .nsec = TIME_NSEC_PER_SEC }
 
 struct time_ns {
-  int32_t sec;
-  int32_t nsec;
+  uint32_t sec;
+  uint32_t nsec;
 };
 
 typedef struct time_ns time_ns_t;

@@ -85,8 +85,8 @@ static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t
   // New timeout does not match old timeout
   // We need to calculate the delta t to the earliest deadline
 
-  time_sub(&now, &earliest_deadline);
-  delta_ns = time_to_ns(&now);
+  time_sub(&earliest_deadline, &now);
+  delta_ns = time_to_ns(&earliest_deadline);
 
   delta_ns += hal->timescale - 1ULL;
   // Convert into HAL API timescale
