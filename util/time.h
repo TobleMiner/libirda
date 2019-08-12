@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #define TIME_NSEC_PER_SEC 1000000000UL
 
