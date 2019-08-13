@@ -2,6 +2,10 @@
 
 #include "irphy.h"
 
+#define LOCAL_TAG "IRDA PHY"
+
+#define IRPHY_LOGV(phy, fmt, ...) IRHAL_LOGV(phy->hal, fmt, #__VA_ARGS__)
+
 int irphy_init(struct irphy* phy, struct irhal* hal, const struct irphy_hal_ops* hal_ops) {
   memset(phy, 0, sizeof(*phy));
   phy->hal = hal;
@@ -27,12 +31,14 @@ int irphy_run_cd(struct irphy* phy, const time_ns_t* duration, const irphy_cd_cb
   int err;
   phy->cd.cb = cb;
   phy->cd.priv = priv;
+  IRPHY_LOGV(phy, "Starting carrier detection");
   err = irhal_set_timer(phy->hal, duration, irphy_cd_timeout, phy);
   if(err < 0) {
     goto fail;
   }
   phy->cd.timer = err;
 
+  IRPHY_LOGV(phy, "Calling hal_ops.cd_enable");
   err = phy->hal_ops.cd_enable(phy, irphy_cd_detected, phy);
   if(err) {
     goto fail_timer;
