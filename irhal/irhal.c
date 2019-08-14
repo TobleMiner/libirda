@@ -179,3 +179,7 @@ int irhal_clear_timer(struct irhal* hal, int timerid) {
   timer->enabled = false;
   return irhal_recalculate_timeout(hal, false, NULL);
 }
+
+int irhal_random_bytes(struct irhal* hal, uint8_t* data, size_t len) {
+  return hal->hal_ops.get_random_bytes(data, len, hal->priv);
+}

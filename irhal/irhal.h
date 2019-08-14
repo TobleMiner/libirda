@@ -23,6 +23,7 @@ typedef void (*irhal_alarm_cb)(struct irhal* hal);
 typedef uint64_t (*irhal_get_time)(void* arg);
 typedef int (*irhal_set_alarm)(struct irhal* hal, irhal_alarm_cb cb, uint64_t timeout, void* arg);
 typedef int (*irhal_clear_alarm)(void* arg);
+typedef int (*irhal_get_random_bytes)(uint8_t* data, size_t len, void* arg);
 
 
 #define IRHAL_LOG(hal, level, fmt, ...) if((hal)->hal_ops.log) { (hal)->hal_ops.log(hal->priv, level, LOCAL_TAG, fmt, ##__VA_ARGS__); }
@@ -39,6 +40,7 @@ struct irhal_hal_ops {
   irhal_set_alarm        set_alarm;
   irhal_clear_alarm      clear_alarm;
   irhal_log              log;
+  irhal_get_random_bytes get_random_bytes;
 };
 
 struct irhal {
@@ -66,4 +68,4 @@ int irhal_init(struct irhal* hal, struct irhal_hal_ops* hal_ops, uint64_t max_ti
 void irhal_now(struct irhal* hal, time_ns_t* t);
 int irhal_set_timer(struct irhal* hal, time_ns_t* timeout, irhal_timer_cb cb, void* priv);
 int irhal_clear_timer(struct irhal* hal, int timer);
-
+int irhal_random_bytes(struct irhal* hal, uint8_t* data, size_t len);
