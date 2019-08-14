@@ -50,3 +50,43 @@ struct irphy {
 
 int irphy_init(struct irphy* phy, struct irhal* hal, const struct irphy_hal_ops* hal_ops);
 int irphy_run_cd(struct irphy* phy, const time_ns_t* duration, const irphy_cd_cb cb, void* priv);
+
+static inline int irphy_set_baudrate(struct irphy* phy, uint32_t rate) {
+  return phy->hal_ops.set_baudrate(rate, phy->hal_priv);
+}
+
+static inline int irphy_tx_enable(struct irphy* phy) {
+  return phy->hal_ops.tx_enable(phy->hal_priv);
+}
+
+static inline ssize_t irphy_tx(struct irphy* phy, const void* data, size_t len) {
+  return phy->hal_ops.tx(data, len, phy->hal_priv);
+}
+
+static inline int irphy_tx_wait(struct irphy* phy) {
+  return phy->hal_ops.tx_wait(phy->hal_priv);
+}
+
+static inline int irphy_tx_disable(struct irphy* phy) {
+  return phy->hal_ops.tx_disable(phy->hal_priv);
+}
+
+static inline int irphy_rx_enable(const struct irphy* phy, irphy_rx_cb cb) {
+  return phy->hal_ops.rx_enable(phy, cb, phy->hal_priv);
+}
+
+static inline ssize_t irphy_rx(struct irphy* phy, void* data, size_t len) {
+  return phy->hal_ops.rx(data, len, phy->hal_priv);
+}
+
+static inline int irphy_rx_disable(struct irphy* phy) {
+  return phy->hal_ops.rx_disable(phy->hal_priv);
+}
+
+static inline int irphy_cd_enable(const struct irphy* phy, irphy_carrier_cb cb) {
+  return phy->hal_ops.cd_enable(phy, cb, phy->hal_priv);
+}
+
+static inline int irphy_cd_disable(struct irphy* phy) {
+  return phy->hal_ops.cd_disable(phy->hal_priv);
+}
