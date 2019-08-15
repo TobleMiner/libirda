@@ -54,6 +54,7 @@ static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc) {
     disc->current_slot++;
   } else {
     frame.slot = IRLAP_XID_SLOT_NUM_FINAL;
+    memcpy(frame.discovery_info, disc->discovery_info, disc->discovery_info_len);
     err = irlap_send_frame(lap, &hdr, frame.data_info, sizeof(frame.data) + disc->discovery_info_len);
     if(err) {
       IRLAP_DISC_LOGE(disc, "Failed to send final discovery frame: %d", err);
