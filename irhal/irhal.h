@@ -20,11 +20,14 @@ struct irhal_timer;
 
 typedef void (*irhal_alarm_cb)(struct irhal* hal);
 
-typedef uint64_t (*irhal_get_time)(void* arg);
-typedef int (*irhal_set_alarm)(struct irhal* hal, irhal_alarm_cb cb, uint64_t timeout, void* arg);
-typedef int (*irhal_clear_alarm)(void* arg);
-typedef int (*irhal_get_random_bytes)(uint8_t* data, size_t len, void* arg);
-
+typedef uint64_t (*irhal_get_time_f)(void* arg);
+typedef int (*irhal_set_alarm_f)(struct irhal* hal, irhal_alarm_cb cb, uint64_t timeout, void* arg);
+typedef int (*irhal_clear_alarm_f)(void* arg);
+typedef int (*irhal_get_random_bytes_f)(uint8_t* data, size_t len, void* arg);
+typedef int (*irhal_lock_alloc_f)(void** lock, void* priv);
+typedef void (*irhal_lock_free_f)(void* lock, void* priv);
+typedef void (*irhal_lock_take_f)(void* lock, void* priv);
+typedef void (*irhal_lock_put_f)(void* lock, void* priv);
 
 #define IRHAL_LOG(hal, level, fmt, ...) if((hal)->hal_ops.log) { (hal)->hal_ops.log(hal->priv, level, LOCAL_TAG, fmt, ##__VA_ARGS__); }
 #define IRHAL_LOGV(hal, fmt, ...) IRHAL_LOG(hal, IRHAL_LOG_LEVEL_VERBOSE, fmt, ##__VA_ARGS__)
@@ -33,14 +36,18 @@ typedef int (*irhal_get_random_bytes)(uint8_t* data, size_t len, void* arg);
 #define IRHAL_LOGW(hal, fmt, ...) IRHAL_LOG(hal, IRHAL_LOG_LEVEL_WARNING, fmt, ##__VA_ARGS__)
 #define IRHAL_LOGE(hal, fmt, ...) IRHAL_LOG(hal, IRHAL_LOG_LEVEL_ERROR, fmt, ##__VA_ARGS__)
 
-typedef void (*irhal_log)(void* priv, int level, const char* tag, const char* fmt, ...);
+typedef void (*irhal_log_f)(void* priv, int level, const char* tag, const char* fmt, ...);
 
 struct irhal_hal_ops {
-  irhal_get_time         get_time;
-  irhal_set_alarm        set_alarm;
-  irhal_clear_alarm      clear_alarm;
-  irhal_log              log;
-  irhal_get_random_bytes get_random_bytes;
+  irhal_get_time_f         get_time;
+  irhal_set_alarm_f        set_alarm;
+  irhal_clear_alarm_f      clear_alarm;
+  irhal_log_f              log;
+  irhal_get_random_bytes_f get_random_bytes;
+  irhal_lock_alloc_f       lock_alloc;
+  irhal_lock_free_f        lock_free;
+  irhal_lock_take_f        lock_take;
+  irhal_lock_put_f         lock_put;
 };
 
 struct irhal {
