@@ -1,9 +1,21 @@
 #pragma once
 
+#include <stdint.h>
+#include <stdbool.h>
+
 #include "../util/list.h"
 #include "irlap_defs.h"
 
 typedef struct list_head irlap_discovery_log_list_t;
+
+#define IRLAP_DISCOVERY_MAX_SLOTS 16
+#define IRLAP_DISCOVERY_INFO_MAX_LEN 32
+
+typedef enum {
+	IRLAP_DISCOVERY_RESULT_OK = 0,
+	IRLAP_DISCOVERY_RESULT_MEDIA_BUSY,
+	IRLAP_DISCOVERY_RESULT_CANCELED,
+} irlap_discovery_result_t;
 
 struct irlap_discovery_log {
   bool            solicited;
@@ -22,11 +34,46 @@ struct irlap_discovery_log_entry {
 };
 
 
-typedef int (*irlap_discovery_indication)(struct irlap_discovery_log* log);
-typedef int (*irlap_discovery_confirm)(irlap_discovery_log_list_t* list);
+typedef int (*irlap_discovery_indication)(struct irlap_discovery_log* log, void* priv);
+typedef int (*irlap_discovery_confirm)(irlap_discovery_result_t result, irlap_discovery_log_list_t* list, void* priv);
 
 struct irlap_discovery_ops {
-  void* priv;
   irlap_discovery_indication indication;
   irlap_discovery_confirm confirm;
 };
+
+struct irlap_discovery {
+  struct irlap_discovery_ops ops;
+	uint8_t num_slots;
+	uint8_t current_slot;
+	int slot_timer;
+	int query_timer;
+  uint8_t discovery_info[IRLAP_DISCOVERY_INFO_MAX_LEN];
+  uint8_t discovery_info_len;
+  irlap_discovery_log_list_t discovery_log;
+  bool frame_sent;
+};
+
+#define IRLAP_XID_FRAME_FLAGS_MASK     0b00000111
+#define IRLAP_XID_FRAME_FLAGS_1_SLOT   0b00000000
+#define IRLAP_XID_FRAME_FLAGS_6_SLOTS  0b00000001
+#define IRLAP_XID_FRAME_FLAGS_8_SLOTS  0b00000010
+#define IRLAP_XID_FRAME_FLAGS_16_SLOTS 0b00000011
+
+#define IRLAP_XID_SLOT_NUM_FINAL 0xFF
+
+union irlap_xid_frame {
+  struct {
+    uint8_t fi;
+    irlap_addr_t src_address;
+    irlap_addr_t dst_address;
+    uint8_t flags;
+    uint8_t slot;
+    uint8_t version;
+    uint8_t discovery_info[32];
+  } __attribute__((packed));
+  uint8_t data[12];
+  uint8_t data_info[12 + IRLAP_DISCOVERY_INFO_MAX_LEN];
+};
+
+int irlap_discovery_request(struct irlap_discovery* disc, uint8_t num_slots, uint8_t* discovery_info, uint8_t discovery_info_len);

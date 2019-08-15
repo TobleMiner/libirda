@@ -19,16 +19,24 @@ struct irlap_connection {
 };
 
 struct irlap {
+	void* priv;
   struct irphy* phy;
   struct irlap_ops ops;
 
   irlap_addr_t address;
-  irlap_version_t version;
 
   irlap_station_mode_t state;
   irlap_station_role_t role;
+	bool media_busy;
+
+	unsigned int additional_bof;
 
   irlap_connection_list_t connections;
+
+  struct irlap_discovery discovery;
+
+  void* phy_lock;
+  void* state_lock;
 };
 
 union irlap_frame_hdr {
@@ -41,8 +49,15 @@ union irlap_frame_hdr {
 
 typedef union irlap_frame_hdr irlap_frame_hdr_t;
 
-#define IRLAP_FRAME_IS_UNNUMBERED(hdr) (hdr.)
-
-int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops);
+int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void* priv);
 int irlap_regenerate_address(struct irlap* lap);
 int irlap_send_xir(struct irlap* lap);
+bool irlap_is_media_busy(struct irlap* lap);
+int irlap_lock_alloc(struct irlap* lap, void** lock);
+void irlap_lock_free(struct irlap* lap, void* lock);
+void irlap_lock_take(struct irlap* lap, void* lock);
+void irlap_lock_put(struct irlap* lap, void* lock);
+irlap_addr_t irlap_get_address(struct irlap* lap);
+int irlap_set_timer(struct irlap* lap, unsigned int timeout_ms, irhal_timer_cb cb, void* priv);
+int irlap_clear_timer(struct irlap* lap, int timer);
+int irlap_send_frame(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* payload, size_t payload_len);
