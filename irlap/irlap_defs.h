@@ -8,9 +8,16 @@ typedef uint8_t irlap_control_t;
 #define IRLAP_VERSION 0   // Always 0, see section section 5.7.1.4.1.4.1.5 IrLAP specification v1.1
 #define IRLAP_FORMAT_ID 1 // Always one, see section 5.7.1.4.1.3 IrLAP specification v1.1
 
+#define IRLAP_ERR_BASE    0x400
+#define IRLAP_ERR_ADDRESS (IRLAP_ERR_BASE + 1)
+
 #define IRLAP_SLOT_TIMEOUT 50
 #define IRLAP_P_TIMEOUT_MAX 500
 #define IRLAP_F_TIMEOUT_MAX 500
+#define IRLAR_MEDIA_BUSY_TIMEOUT 650
+
+#define IRLAP_MAX_DATA_SIZE 2048
+#define IRLAP_MAX_DATA_SIZE 2048
 
 #define IRLAP_ADDR_BCAST 0xFFFFFFFF
 
@@ -30,6 +37,7 @@ typedef uint8_t irlap_control_t;
 #define IRLAP_FRAME_IS_UNNUMBERED(hdr) (((hdr)->control & IRLAP_FRAME_FORMAT_MASK) == IRLAP_FRAME_FORMAT_UNNUMBERED)
 
 #define IRLAP_FRAME_ADDITIONAL_BOF_CONTETION 10
+#define IRLAP_FRAME_ADDITIONAL_BOF_MAX       48
 
 #define IRLAP_CMD_MASK 0b11101100
 #define IRLAP_CMD_SNMR 0b10000000
