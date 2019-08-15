@@ -51,7 +51,6 @@ typedef union irlap_frame_hdr irlap_frame_hdr_t;
 
 int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void* priv);
 int irlap_regenerate_address(struct irlap* lap);
-int irlap_send_xir(struct irlap* lap);
 bool irlap_is_media_busy(struct irlap* lap);
 int irlap_lock_alloc(struct irlap* lap, void** lock);
 void irlap_lock_free(struct irlap* lap, void* lock);
