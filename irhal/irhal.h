@@ -71,8 +71,25 @@ struct irhal_timer {
   time_ns_t deadline;
 };
 
+
 int irhal_init(struct irhal* hal, struct irhal_hal_ops* hal_ops, uint64_t max_time_val, uint64_t timescale);
 void irhal_now(struct irhal* hal, time_ns_t* t);
 int irhal_set_timer(struct irhal* hal, time_ns_t* timeout, irhal_timer_cb cb, void* priv);
 int irhal_clear_timer(struct irhal* hal, int timer);
 int irhal_random_bytes(struct irhal* hal, uint8_t* data, size_t len);
+
+static inline int irhal_lock_alloc(struct irhal* hal, void** lock) {
+  return hal->hal_ops.lock_alloc(lock, hal->priv);
+}
+
+static inline void irhal_lock_free(struct irhal* hal, void* lock) {
+  return hal->hal_ops.lock_free(lock, hal->priv);
+}
+
+static inline void irhal_lock_take(struct irhal* hal, void* lock) {
+  return hal->hal_ops.lock_take(lock, hal->priv);
+}
+
+static inline void irhal_lock_put(struct irhal* hal, void* lock) {
+  return hal->hal_ops.lock_put(lock, hal->priv);
+}
