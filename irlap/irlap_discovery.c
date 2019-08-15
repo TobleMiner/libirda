@@ -17,8 +17,11 @@ static int8_t irlap_discovery_slot_table[17] = { -1, 0b00, -1, -1, -1, -1, 0b01,
 #define IRLAP_DISC_LOGW(disc, fmt, ...) IRHAL_LOGW(IRLAP_DISCOVERY_TO_IRLAP(disc)->phy->hal, fmt, ##__VA_ARGS__)
 #define IRLAP_DISC_LOGE(disc, fmt, ...) IRHAL_LOGE(IRLAP_DISCOVERY_TO_IRLAP(disc)->phy->hal, fmt, ##__VA_ARGS__)
 
+static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc);
+
 static void irlap_slot_timeout(void* priv) {
   struct irlap_discovery* disc = priv;
+  irlap_discovery_send_xid_cmd(disc);
 }
 
 static void irlap_discovery_frame_init(struct irlap* lap, union irlap_xid_frame* frame) {
