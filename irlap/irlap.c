@@ -17,6 +17,7 @@
 #define IRLAP_LOGE(lap, fmt, ...) IRHAL_LOGE(lap->phy->hal, fmt, ##__VA_ARGS__)
 
 static int irlap_media_busy(struct irlap* lap);
+static void irlap_handle_irda_event(struct irphy* phy, irphy_event_t event, void* priv);
 
 int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void* priv) {
   int err;
@@ -43,6 +44,14 @@ int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void
   IRLAP_LOGD(lap, "State lock is %p", lap->state_lock);
 
   err = irlap_media_busy(lap);
+  if(err) {
+    goto fail_phy_lock;
+  }
+
+  err = irphy_rx_enable(lap->phy, irlap_handle_irda_event, lap);
+  if(err) {
+    goto fail_phy_lock;
+  }
 
 fail_phy_lock:
   irlap_lock_free(lap, &lap->phy_lock);
@@ -186,28 +195,27 @@ static int irlap_media_busy(struct irlap* lap) {
   return err < 0 ? err : 0;
 }
 
-void irlap_uart_event(struct irlap* lap, irlap_uart_event_t event) {
+static void irlap_handle_irda_event(struct irphy* phy, irphy_event_t event, void* priv) {
+  struct irlap* lap = priv;
   int err = 0;
   uint8_t buff[128];
   ssize_t read_len;
   switch(event) {
-    case IRLAP_UART_DATA_RX:
+    case IRPHY_EVENT_DATA_RX:
       while((read_len = irphy_rx(lap->phy, buff, sizeof(buff))) > 0) {
         if(irlap_wrapper_unwrap(IRLAP_FRAME_WRAPPER_ASYNC, &lap->wrapper_state, buff, read_len, irlap_handle_frame, lap)) {
-          IRLAP_LOGW(lap, "Got invalid data");
           err = 1;
         }
       }
       if(read_len < 0) {
-        IRLAP_LOGE(lap, "Failed to read from uart: %zd", read_len);
+        IRLAP_LOGE(lap, "Failed to read from infrared phy: %zd", read_len);
       }
       if(err) {
         irlap_media_busy(lap);
       }
       break;
-    case IRLAP_UART_FRAMING_ERROR:
-    case IRLAP_UART_RX_OVERFLOW:
-      IRLAP_LOGW(lap, "Got frame error");
+    case IRPHY_EVENT_FRAMING_ERROR:
+    case IRPHY_EVENT_RX_OVERFLOW:
       irlap_media_busy(lap);
   }
 }

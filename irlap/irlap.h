@@ -30,12 +30,6 @@ struct irlap_connection {
   irlap_connection_addr_t connection_address;
 };
 
-typedef enum {
-  IRLAP_UART_DATA_RX,
-  IRLAP_UART_FRAMING_ERROR,
-  IRLAP_UART_RX_OVERFLOW,
-} irlap_uart_event_t;
-
 struct irlap {
 	void* priv;
   struct irphy* phy;
@@ -71,4 +65,3 @@ irlap_addr_t irlap_get_address(struct irlap* lap);
 int irlap_set_timer(struct irlap* lap, unsigned int timeout_ms, irhal_timer_cb cb, void* priv);
 int irlap_clear_timer(struct irlap* lap, int timer);
 int irlap_send_frame(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* payload, size_t payload_len);
-void irlap_uart_event(struct irlap* lap, irlap_uart_event_t event);
