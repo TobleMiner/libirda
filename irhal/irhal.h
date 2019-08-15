@@ -15,8 +15,11 @@
 #define IRHAL_LOG_LEVEL_DEBUG   4
 #define IRHAL_LOG_LEVEL_VERBOSE 5
 
+#define IHAL_LOG_LEVEL IRHAL_LOG_LEVEL_DEBUG
+
 struct irhal;
 struct irhal_timer;
+struct irhal_timer_fire;
 
 typedef void (*irhal_alarm_cb)(struct irhal* hal);
 
@@ -29,7 +32,7 @@ typedef void (*irhal_lock_free_f)(void* lock, void* priv);
 typedef void (*irhal_lock_take_f)(void* lock, void* priv);
 typedef void (*irhal_lock_put_f)(void* lock, void* priv);
 
-#define IRHAL_LOG(hal, level, fmt, ...) if((hal)->hal_ops.log) { (hal)->hal_ops.log(hal->priv, level, LOCAL_TAG, fmt, ##__VA_ARGS__); }
+#define IRHAL_LOG(hal, level, fmt, ...) if(level <= IHAL_LOG_LEVEL) { if((hal)->hal_ops.log) { (hal)->hal_ops.log(hal->priv, level, LOCAL_TAG, fmt, ##__VA_ARGS__); } }
 #define IRHAL_LOGV(hal, fmt, ...) IRHAL_LOG(hal, IRHAL_LOG_LEVEL_VERBOSE, fmt, ##__VA_ARGS__)
 #define IRHAL_LOGD(hal, fmt, ...) IRHAL_LOG(hal, IRHAL_LOG_LEVEL_DEBUG, fmt, ##__VA_ARGS__)
 #define IRHAL_LOGI(hal, fmt, ...) IRHAL_LOG(hal, IRHAL_LOG_LEVEL_INFO, fmt, ##__VA_ARGS__)
@@ -54,15 +57,22 @@ struct irhal {
   uint64_t max_time_val;
   uint64_t timescale;
   struct irhal_timer* timers;
+  struct irhal_timer_fire* fire_list;
   struct irhal_hal_ops hal_ops;
   size_t num_timers;
   uint64_t last_timestamp;
   time_ns_t last_time;
   time_ns_t current_timer_deadline;
+  void* timer_lock;
   void* priv;
 };
 
 typedef void (*irhal_timer_cb)(void* priv);
+
+struct irhal_timer_fire {
+  irhal_timer_cb cb;
+  void* priv;
+};
 
 struct irhal_timer {
   bool enabled;

@@ -7,16 +7,34 @@
 #define LOCAL_TAG "IRDA HAL"
 
 int irhal_init(struct irhal* hal, struct irhal_hal_ops* hal_ops, uint64_t max_time_val, uint64_t timescale) {
+  int err;
   memset(hal, 0, sizeof(*hal));
   hal->max_time_val = max_time_val;
   hal->timescale = timescale;
   hal->hal_ops = *hal_ops;
   hal->timers = calloc(IRHAL_NUM_TIMER_DEFAULT, sizeof(struct irhal_timer));
   if(!hal->timers) {
-    return -ENOMEM;
+    err = -ENOMEM;
+    goto fail;
+  }
+  hal->fire_list = calloc(IRHAL_NUM_TIMER_DEFAULT, sizeof(struct irhal_timer_fire));
+  if(!hal->fire_list) {
+    err = -ENOMEM;
+    goto fail_timers;
   }
   hal->num_timers = IRHAL_NUM_TIMER_DEFAULT;
+  err = irhal_lock_alloc(hal, &hal->timer_lock);
+  if(err) {
+    goto fail_fire_list;
+  }
   return 0;
+
+fail_fire_list:
+  free(hal->fire_list);
+fail_timers:
+  free(hal->timers);
+fail:
+  return err;
 }
 
 void irhal_now(struct irhal* hal, time_ns_t* t) {
@@ -40,6 +58,7 @@ static void irhal_alarm_callback(struct irhal* hal);
 
 static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t* assumed_now) {
   int i;
+  int fire_index = 0;
   time_ns_t earliest_deadline = TIME_NS_MAX;
   time_ns_t now;
   uint64_t delta_ns;
@@ -50,6 +69,9 @@ static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t
     irhal_now(hal, &now);
   }
   IRHAL_LOGV(hal, "Now is sec = %lu, nsec = %lu", now.sec, now.nsec);
+  if(fire_cbs) {
+    memset(hal->fire_list, 0, hal->num_timers * sizeof(*hal->fire_list));
+  }
   for(i = 0; i < hal->num_timers; i++) {
     struct irhal_timer* timer = &hal->timers[i];
     // Ignore timers that are not running
@@ -59,9 +81,12 @@ static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t
     IRHAL_LOGV(hal, "Timer %d is enabled, deadline: sec = %lu, nsec = %lu", i, timer->deadline.sec, timer->deadline.nsec);
     if(fire_cbs) {
       if(TIME_NS_LE(timer->deadline, now)) {
-        IRHAL_LOGV(hal, "  Firing timer %d", i);
+        IRHAL_LOGV(hal, "  Adding timer %d to fire list", i);
+        hal->fire_list[fire_index].cb = timer->cb;
+        hal->fire_list[fire_index].priv = timer->priv;
+        fire_index++;
+//        timer->cb(timer->priv);
         timer->enabled = false;
-        timer->cb(timer->priv);
         continue;
       }      
     }
@@ -111,14 +136,24 @@ static int irhal_recalculate_timeout(struct irhal* hal, bool fire_cbs, time_ns_t
     delta_ns = hal->max_time_val / 2ULL;
   }
 
+  hal->hal_ops.clear_alarm(hal->priv);
   return hal->hal_ops.set_alarm(hal, irhal_alarm_callback, delta_ns, hal->priv);
 }
 
 static void irhal_alarm_callback(struct irhal* hal) {
+  int i;
   time_ns_t now;
   irhal_now(hal, &now);
   IRHAL_LOGV(hal, "Got alarm callback");
+  irhal_lock_take(hal, hal->timer_lock);
   irhal_recalculate_timeout(hal, true, &now);
+  irhal_lock_put(hal, hal->timer_lock);
+  for(i = 0; i < hal->num_timers; i++) {
+    struct irhal_timer_fire* fire_entry = &hal->fire_list[i];
+    if(fire_entry->cb) {
+      fire_entry->cb(fire_entry->priv);
+    }
+  }
 }
 
 static int irhal_set_timer_(struct irhal* hal, struct irhal_timer* timer, const time_ns_t* timeout, irhal_timer_cb cb, void* priv) {
@@ -135,6 +170,7 @@ static int irhal_set_timer_(struct irhal* hal, struct irhal_timer* timer, const 
 
 static int irhal_request_timers_(struct irhal* hal) {
   size_t new_num_timers = hal->num_timers + IRHAL_NUM_TIMER_DEFAULT;
+  struct irhal_timer_fire* new_fire_list;
   struct irhal_timer* new_timers = realloc(hal->timers, sizeof(struct irhal_timer) * new_num_timers);
   if(!new_timers) {
     return -ENOMEM;
@@ -142,6 +178,12 @@ static int irhal_request_timers_(struct irhal* hal) {
   // Initialize new timers
   memset(&new_timers[hal->num_timers], 0, (new_num_timers - hal->num_timers) * sizeof(struct irhal_timer));
   hal->timers = new_timers;
+
+  new_fire_list = realloc(hal->fire_list, sizeof(struct irhal_timer_fire) * new_num_timers);
+  if(!new_fire_list) {
+    return -ENOMEM;
+  }
+  hal->fire_list = new_fire_list;
   hal->num_timers = new_num_timers;
   return 0;
 }
@@ -150,34 +192,45 @@ int irhal_set_timer(struct irhal* hal, time_ns_t* timeout, irhal_timer_cb cb, vo
   int i;
   int err;
   IRHAL_LOGV(hal, "Setting up timer for sec = %lu sec, nsec = %lu", timeout->sec, timeout->nsec);
+  irhal_lock_take(hal, hal->timer_lock);
   for(i = 0; i < hal->num_timers; i++) {
     struct irhal_timer* timer = &hal->timers[i];
     if(!timer->enabled) {
       err = irhal_set_timer_(hal, timer, timeout, cb, priv);
       if(err) {
-        return err;
+        goto out;
       }
-      return i;
+      err = i;
+      goto out;
     }
   }
   err = irhal_request_timers_(hal);
   if(err) {
-    return err;
+    goto out;
   }
-  return irhal_set_timer(hal, timeout, cb, priv);
+  err = irhal_set_timer(hal, timeout, cb, priv);
+out:
+  irhal_lock_put(hal, hal->timer_lock);
+  return err;
 }
 
 int irhal_clear_timer(struct irhal* hal, int timerid) {
+  int err;
   struct irhal_timer* timer;
   if(timerid < 0 || timerid >= hal->num_timers) {
     return -EINVAL;
   }
+  irhal_lock_take(hal, hal->timer_lock);
   timer = &hal->timers[timerid];
   if(!timer->enabled) {
-    return -EINVAL;
+    err = -EINVAL;
+    goto out;
   }
   timer->enabled = false;
-  return irhal_recalculate_timeout(hal, false, NULL);
+  err = irhal_recalculate_timeout(hal, false, NULL);
+out:
+  irhal_lock_put(hal, hal->timer_lock);
+  return err;
 }
 
 int irhal_random_bytes(struct irhal* hal, uint8_t* data, size_t len) {
