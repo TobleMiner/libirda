@@ -21,6 +21,7 @@ static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc);
 
 static void irlap_slot_timeout(void* priv) {
   struct irlap_discovery* disc = priv;
+  disc->slot_timer = 0;
   irlap_discovery_send_xid_cmd(disc);
 }
 
@@ -50,10 +51,11 @@ static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc) {
       goto fail;
     }
     err = irlap_set_timer(lap, IRLAP_SLOT_TIMEOUT, irlap_slot_timeout, disc);
-    if(err) {
+    if(err < 0) {
       IRLAP_DISC_LOGE(disc, "Failed to set up discovery slot timeout after slot %u: %d", frame.slot, err);
       goto fail;
     }
+    disc->slot_timer = err;
     disc->current_slot++;
   } else {
     frame.slot = IRLAP_XID_SLOT_NUM_FINAL;
