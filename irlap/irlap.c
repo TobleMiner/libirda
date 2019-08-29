@@ -109,13 +109,14 @@ int irlap_send_frame(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* payload
 		goto fail_alloc;
 	}
 
+/*
   IRLAP_LOGD(lap, "==== Wrapped frame START ====");
   for(size_t i = 0; i < frame_size; i++) {
     printf("%02x ", frame_data[i]);
   }
   printf("\n");
   IRLAP_LOGD(lap, "==== Wrapped frame END ====");
-	
+*/
   err = irphy_tx_enable(lap->phy);
 	if(err) {
 		goto fail_alloc;
