@@ -23,7 +23,7 @@ struct irlap_discovery_log {
   irlap_addr_t    device_address;
   irlap_version_t irlap_version;
   struct {
-    char data[32];
+    char data[IRLAP_DISCOVERY_INFO_MAX_LEN];
     uint8_t len;
   }               discovery_info;
 };
@@ -51,14 +51,17 @@ struct irlap_discovery {
   uint8_t discovery_info[IRLAP_DISCOVERY_INFO_MAX_LEN];
   uint8_t discovery_info_len;
   irlap_discovery_log_list_t discovery_log;
+  uint8_t slot;
   bool frame_sent;
 };
 
-#define IRLAP_XID_FRAME_FLAGS_MASK     0b00000111
-#define IRLAP_XID_FRAME_FLAGS_1_SLOT   0b00000000
-#define IRLAP_XID_FRAME_FLAGS_6_SLOTS  0b00000001
-#define IRLAP_XID_FRAME_FLAGS_8_SLOTS  0b00000010
-#define IRLAP_XID_FRAME_FLAGS_16_SLOTS 0b00000011
+#define IRLAP_XID_FRAME_FLAGS_MASK                 0b00000111
+#define IRLAP_XID_FRAME_FLAGS_SLOT_MASK            0b00000011
+#define IRLAP_XID_FRAME_FLAGS_1_SLOT               0b00000000
+#define IRLAP_XID_FRAME_FLAGS_6_SLOTS              0b00000001
+#define IRLAP_XID_FRAME_FLAGS_8_SLOTS              0b00000010
+#define IRLAP_XID_FRAME_FLAGS_16_SLOTS             0b00000011
+#define IRLAP_XID_FRAME_FLAGS_GENERATE_NEW_ADDRESS 0b00000100
 
 #define IRLAP_XID_SLOT_NUM_FINAL 0xFF
 
@@ -74,11 +77,14 @@ union irlap_xid_frame {
     uint8_t flags;
     uint8_t slot;
     uint8_t version;
-    uint8_t discovery_info[32];
+    uint8_t discovery_info[IRLAP_DISCOVERY_INFO_MAX_LEN];
   } __attribute__((packed));
   uint8_t data[12];
   uint8_t data_info[12 + IRLAP_DISCOVERY_INFO_MAX_LEN];
 };
+
+#define IRLAP_XID_FRAME_MIN_SIZE (sizeof(((union irlap_xid_frame*)NULL)->data))
+#define IRLAP_XID_FRAME_MAX_SIZE (sizeof(((union irlap_xid_frame*)NULL)->data_info))
 
 int irlap_discovery_request(struct irlap_discovery* disc, uint8_t num_slots, uint8_t* discovery_info, uint8_t discovery_info_len);
 int irlap_discovery_handle_xid_cmd(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool poll);

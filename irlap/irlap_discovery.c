@@ -6,6 +6,7 @@
 #include "../util/util.h"
 
 static int8_t irlap_discovery_slot_table[17] = { -1, 0b00, -1, -1, -1, -1, 0b01, -1, 0b10, -1, -1, -1, -1, -1, -1, -1, 0b11 };
+static uint8_t irlap_discovery_slot_reverse_table[4] = { 1, 6, 8, 16 };
 
 #define IRLAP_DISCOVERY_TO_IRLAP(disc) (container_of((disc), struct irlap, discovery))
 
@@ -129,14 +130,209 @@ fail:
   return err;
 }
 
+static int irlap_discovery_validate_xid_frame(struct irlap_discovery* disc, union irlap_xid_frame* frame, uint8_t* data, size_t len) {
+  // Ensure all required fields are present
+  if(len < IRLAP_XID_FRAME_MIN_SIZE) {
+    IRLAP_DISC_LOGD(disc, "Got invalid xid frame, frame too short %zu bytes < %zu bytes", len, IRLAP_XID_FRAME_MIN_SIZE);
+    return -EINVAL;
+  }
+  // Ensure frame can't overflow xid frame buffer
+  if(len > IRLAP_XID_FRAME_MAX_SIZE) {
+    IRLAP_DISC_LOGD(disc, "Got invalid xid frame, frame too long %zu bytes > %zu bytes", len, IRLAP_XID_FRAME_MAX_SIZE);
+    return -EINVAL;
+  }
+
+  memcpy(frame->data_info, data, len);
+
+  // Specification lists only one valid format id
+  if(frame->fi != IRLAP_FORMAT_ID) {
+    IRLAP_DISC_LOGD(disc, "Got invalid xid frame, invalid format id '%u', must be '%u'", frame->fi, IRLAP_FORMAT_ID);
+    return -EINVAL;
+  }
+
+  // There is only one irlap version
+  if(frame->version != IRLAP_VERSION) {
+    IRLAP_DISC_LOGD(disc, "Got invalid xid frame, invalid version number '%u', must be '%u'", frame->version, IRLAP_VERSION);
+    return -EINVAL;
+  }
+
+  // Source address may neither be NULL nor broadcast address
+  if(frame->src_address == IRLAP_ADDR_NULL) {
+    IRLAP_DISC_LOGD(disc, "Got invalid xid frame, NULL source address is invalid");
+    return -EINVAL;
+  }
+  if(frame->src_address == IRLAP_ADDR_BCAST) {
+    IRLAP_DISC_LOGD(disc, "Got invalid xid frame, broadcast source address is invalid");
+    return -EINVAL;
+  }
+  
+  return len - IRLAP_XID_FRAME_MIN_SIZE;
+}
+
+static int irlap_discovery_handle_xid_cmd_address_conflict(struct irlap_discovery* disc, union irlap_xid_frame* frame) {
+  IRLAP_DISC_LOGW(disc, "Address conflict resolution is not implemented");
+  return IRLAP_FRAME_HANDLED;
+}
+
+static void irlap_query_timeout(void* priv) {
+  struct irlap_discovery* disc = priv;
+	struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
+  disc->query_timer = 0;
+  irlap_lock_take(lap, lap->state_lock);
+  lap->state = IRLAP_STATION_MODE_NDM;
+  irlap_lock_put(lap, lap->state_lock);
+}
+
+static int irlap_discovery_send_xid_response_discovery(struct irlap_discovery* disc, union irlap_xid_frame* query_frame) {
+	struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
+  union irlap_xid_frame frame;
+  irlap_frame_hdr_t hdr = {
+    .connection_address = IRLAP_FRAME_MAKE_ADDRESS_RESPONSE(IRLAP_CONNECTION_ADDRESS_BCAST),
+    .control = IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_RESP_XID | IRLAP_RESP_FINAL,
+  };
+  int err;
+
+  IRLAP_DISC_LOGD(disc, "Sending discovery response on slot: %u", query_frame->slot);
+  irlap_discovery_frame_init(lap, &frame);
+  frame.dst_address = query_frame->src_address;
+  frame.flags = query_frame->flags & IRLAP_XID_FRAME_FLAGS_MASK;
+  frame.slot = query_frame->slot;
+  err = irlap_send_frame(lap, &hdr, frame.data_info, sizeof(frame.data));
+  if(err) {
+    IRLAP_DISC_LOGE(disc, "Failed to send discovery response: %d", err);
+    return err;
+  }
+  disc->frame_sent = true;
+  return 0;
+}
+
+static int irlap_discovery_handle_xid_cmd_discovery_initial(struct irlap_discovery* disc, union irlap_xid_frame* frame, uint8_t num_slots) {
+	struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
+  int err;
+  if(frame->slot == IRLAP_XID_SLOT_NUM_FINAL) {
+    return IRLAP_FRAME_HANDLED;
+  }
+
+  err = irlap_random_u8(lap, &disc->slot, frame->slot, num_slots);
+  if(err) {
+    IRLAP_DISC_LOGW(disc, "Failed to get random slot number");
+    return err;
+  }
+
+  IRLAP_DISC_LOGD(disc, "Will send xid discovery response on slot %u", disc->slot);
+
+  disc->frame_sent = false;
+  if(frame->slot == disc->slot) {
+    irlap_discovery_send_xid_response_discovery(disc, frame);
+  }
+
+  err = irlap_set_timer(lap, IRLAP_SLOT_TIMEOUT * ((uint16_t)(num_slots - frame->slot)), irlap_query_timeout, disc);
+  if(err < 0) {
+    IRLAP_DISC_LOGW(disc, "Failed to timer for query timeout");
+    return err;
+  }
+  disc->query_timer = err;
+
+  lap->state = IRLAP_STATION_MODE_REPLY;
+  return IRLAP_FRAME_HANDLED;
+}
+
+static int irlap_discovery_handle_xid_cmd_discovery_additional(struct irlap_discovery* disc, union irlap_xid_frame* frame, uint8_t discovery_info_len) {
+	struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
+  if(frame->slot == IRLAP_XID_SLOT_NUM_FINAL) {
+    struct irlap_discovery_log log = {
+      .solicited = false,
+      .sniff = (frame->dst_address == IRLAP_ADDR_BCAST),
+      .device_address = frame->src_address,
+      .irlap_version = frame->version,
+      .discovery_info.len = discovery_info_len
+    };
+    irlap_clear_timer(lap, disc->query_timer);
+    lap->state = IRLAP_STATION_MODE_NDM;
+    if(disc->ops.indication) {
+      memcpy(log.discovery_info.data, frame->discovery_info, discovery_info_len);
+      disc->ops.indication(&log, lap->priv);
+    }
+    return IRLAP_FRAME_HANDLED;
+  }
+
+  if(disc->frame_sent) {
+    return IRLAP_FRAME_HANDLED;
+  }
+
+  if(frame->slot < disc->slot) {
+    return IRLAP_FRAME_HANDLED;
+  }
+
+  return irlap_discovery_send_xid_response_discovery(disc, frame);
+}
+
+static int irlap_discovery_handle_xid_cmd_discovery(struct irlap_discovery* disc, union irlap_xid_frame* frame, uint8_t discovery_info_len) {
+	struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
+  int err = IRLAP_FRAME_HANDLED;
+  uint8_t num_slots = irlap_discovery_slot_reverse_table[frame->flags & IRLAP_XID_FRAME_FLAGS_SLOT_MASK];
+
+  if(frame->dst_address != IRLAP_ADDR_BCAST && frame->dst_address != lap->address) {
+    IRLAP_DISC_LOGV(disc, "Got xid discovery frame not addressed to us, dst: %08x", frame->dst_address);
+    goto fail;
+  }
+
+  if(frame->slot >= num_slots && frame->slot != IRLAP_XID_SLOT_NUM_FINAL) {
+    IRLAP_DISC_LOGD(disc, "Got xid discovery frame with slot num %u >= max slot num %u", frame->slot, num_slots);
+    err = -EINVAL;
+    goto fail;
+  }
+
+  irlap_lock_take(lap, lap->state_lock);
+  switch(lap->state) {
+    case IRLAP_STATION_MODE_NDM:
+      IRLAP_DISC_LOGD(disc, "Starting xid discovery response");
+      err = irlap_discovery_handle_xid_cmd_discovery_initial(disc, frame, num_slots);
+      break;
+    case IRLAP_STATION_MODE_REPLY:
+      IRLAP_DISC_LOGD(disc, "Continuing xid discovery response");
+      err = irlap_discovery_handle_xid_cmd_discovery_additional(disc, frame, discovery_info_len);
+      break;
+    default:
+      IRLAP_DISC_LOGD(disc, "Station neither in NDM nor REPLY mode, can't respond to discovery");
+      err = -EAGAIN;
+      goto fail_locked;
+  }
+
+fail_locked:
+  irlap_lock_put(lap, lap->state_lock);
+fail:
+  return err;
+}
+
 int irlap_discovery_handle_xid_cmd(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool poll) {
   struct irlap_discovery* disc = &lap->discovery;
-  IRLAP_DISC_LOGI(disc, "Got xid cmd");
-  return IRLAP_FRAME_HANDLED;
+  int err;
+  union irlap_xid_frame frame;
+  uint8_t discovery_info_len;
+
+  IRLAP_DISC_LOGD(disc, "Got xid cmd");
+  err = irlap_discovery_validate_xid_frame(disc, &frame, data, len);
+  if(err < 0) {
+    IRLAP_DISC_LOGD(disc, "Xid cmd is invalid");
+    return err;
+  }
+  discovery_info_len = err;
+
+  if(frame.flags & IRLAP_XID_FRAME_FLAGS_GENERATE_NEW_ADDRESS) {
+    return irlap_discovery_handle_xid_cmd_address_conflict(disc, &frame);
+  }
+  return irlap_discovery_handle_xid_cmd_discovery(disc, &frame, discovery_info_len);
 }
 
 int irlap_discovery_handle_xid_resp(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool final) {
   struct irlap_discovery* disc = &lap->discovery;
-  IRLAP_DISC_LOGI(disc, "Got xid resp");
+  int err;
+  union irlap_xid_frame frame;
+  IRLAP_DISC_LOGD(disc, "Got xid resp");
+  err = irlap_discovery_validate_xid_frame(disc, &frame, data, len);
+  if(err) {
+    return err;
+  }
   return IRLAP_FRAME_HANDLED;
 }
