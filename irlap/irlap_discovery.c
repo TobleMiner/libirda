@@ -169,11 +169,6 @@ static int irlap_discovery_validate_xid_frame(struct irlap_discovery* disc, unio
   return len - IRLAP_XID_FRAME_MIN_SIZE;
 }
 
-static int irlap_discovery_handle_xid_cmd_address_conflict(struct irlap_discovery* disc, union irlap_xid_frame* frame) {
-  IRLAP_DISC_LOGW(disc, "Address conflict resolution is not implemented");
-  return IRLAP_FRAME_HANDLED;
-}
-
 static void irlap_query_timeout(void* priv) {
   struct irlap_discovery* disc = priv;
 	struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
@@ -211,6 +206,14 @@ static int irlap_discovery_handle_xid_cmd_discovery_initial(struct irlap_discove
   int err;
   if(frame->slot == IRLAP_XID_SLOT_NUM_FINAL) {
     return IRLAP_FRAME_HANDLED;
+  }
+
+  if(frame->flags & IRLAP_XID_FRAME_FLAGS_GENERATE_NEW_ADDRESS) {
+    err = irlap_regenerate_address(lap);
+    if(err) {
+      IRLAP_DISC_LOGW(disc, "Failed to generat new station address");
+      return err;
+    }
   }
 
   err = irlap_random_u8(lap, &disc->slot, frame->slot, num_slots);
@@ -319,9 +322,6 @@ int irlap_discovery_handle_xid_cmd(struct irlap* lap, struct irlap_connection* c
   }
   discovery_info_len = err;
 
-  if(frame.flags & IRLAP_XID_FRAME_FLAGS_GENERATE_NEW_ADDRESS) {
-    return irlap_discovery_handle_xid_cmd_address_conflict(disc, &frame);
-  }
   return irlap_discovery_handle_xid_cmd_discovery(disc, &frame, discovery_info_len);
 }
 
