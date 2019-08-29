@@ -220,7 +220,7 @@ static int irlap_media_busy(struct irlap* lap) {
     irlap_clear_timer(lap, lap->media_busy_timer);
     lap->media_busy_timer = 0;
   }
-  err = irlap_set_timer(lap, IRLAR_MEDIA_BUSY_TIMEOUT, irlap_media_busy_timeout, lap);
+  err = irlap_set_timer(lap, IRLAP_MEDIA_BUSY_TIMEOUT, irlap_media_busy_timeout, lap);
   if(err < 0) {
     IRLAP_LOGW(lap, "Failed to start media busy timer, clearing busy flag");
     lap->media_busy = false;
