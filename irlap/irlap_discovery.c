@@ -245,7 +245,7 @@ static int irlap_discovery_handle_xid_cmd_discovery_additional(struct irlap_disc
   if(frame->slot == IRLAP_XID_SLOT_NUM_FINAL) {
     struct irlap_discovery_log log = {
       .solicited = false,
-      .sniff = (frame->dst_address == IRLAP_ADDR_BCAST),
+      .sniff = false,
       .device_address = frame->src_address,
       .irlap_version = frame->version,
       .discovery_info.len = discovery_info_len
