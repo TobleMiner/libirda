@@ -128,3 +128,15 @@ fail_locked:
 fail:
   return err;
 }
+
+int irlap_discovery_handle_xid_cmd(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool poll) {
+  struct irlap_discovery* disc = &lap->discovery;
+  IRLAP_DISC_LOGI(disc, "Got xid cmd");
+  return IRLAP_FRAME_HANDLED;
+}
+
+int irlap_discovery_handle_xid_resp(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool final) {
+  struct irlap_discovery* disc = &lap->discovery;
+  IRLAP_DISC_LOGI(disc, "Got xid resp");
+  return IRLAP_FRAME_HANDLED;
+}

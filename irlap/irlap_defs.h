@@ -1,5 +1,7 @@
 #pragma once
 
+struct irlap;
+
 typedef uint8_t  irlap_version_t;
 typedef uint32_t irlap_addr_t;
 typedef uint8_t irlap_connection_addr_t;
@@ -26,6 +28,10 @@ typedef uint8_t irlap_control_t;
 #define IRLAP_CONNECTION_ADDRESS_BCAST   0b11111110
 #define IRLAP_CONNECTION_ADDRESS_NULL    0b00000000
 
+#define IRLAP_FRAME_IS_BCAST(hdr) (((hdr)->connection_address & IRLAP_CONNECTION_ADDRESS_MASK) == IRLAP_CONNECTION_ADDRESS_BCAST)
+#define IRLAP_FRAME_IS_COMMAND(hdr) (((hdr)->connection_address & IRLAP_CONNECTION_ADDRESS_CMD_BIT) == IRLAP_CONNECTION_ADDRESS_CMD_BIT)
+#define IRLAP_FRAME_IS_RESPONSE(hdr) (((hdr)->connection_address & IRLAP_CONNECTION_ADDRESS_CMD_BIT) == 0)
+
 #define IRLAP_FRAME_MAKE_ADDRESS_COMMAND(addr) (((addr) & IRLAP_CONNECTION_ADDRESS_MASK) | IRLAP_CONNECTION_ADDRESS_CMD_BIT)
 #define IRLAP_FRAME_MAKE_ADDRESS_RESPONSE(addr) ((addr) & IRLAP_CONNECTION_ADDRESS_MASK)
 
@@ -36,8 +42,12 @@ typedef uint8_t irlap_control_t;
 
 #define IRLAP_FRAME_IS_UNNUMBERED(hdr) (((hdr)->control & IRLAP_FRAME_FORMAT_MASK) == IRLAP_FRAME_FORMAT_UNNUMBERED)
 
-#define IRLAP_FRAME_ADDITIONAL_BOF_CONTETION 10
-#define IRLAP_FRAME_ADDITIONAL_BOF_MAX       48
+#define IRLAP_FRAME_ADDITIONAL_BOF_CONTENTION 10
+#define IRLAP_FRAME_ADDITIONAL_BOF_MAX        48
+
+#define IRLAP_FRAME_POLL_FINAL 0b00010000
+#define IRLAP_FRAME_IS_POLL_FINAL(hdr) (((hdr)->control & IRLAP_FRAME_POLL_FINAL) == IRLAP_FRAME_POLL_FINAL)
+#define IRLAP_FRAME_MASK_POLL_FINAL(ctl) ((ctl) & ~IRLAP_FRAME_POLL_FINAL)
 
 #define IRLAP_CMD_MASK 0b11101100
 #define IRLAP_CMD_SNMR 0b10000000
@@ -75,3 +85,11 @@ typedef enum {
   IRLAP_STATION_ROLE_PRIMARY,
   IRLAP_STATION_ROLE_SECONDARY,
 } irlap_station_role_t;
+
+#define IRLAP_FRAME_HANDLED     0
+#define IRLAP_FRAME_NOT_HANDLED 1
+
+struct irlap_connection {
+  irlap_connection_addr_t connection_address;
+};
+

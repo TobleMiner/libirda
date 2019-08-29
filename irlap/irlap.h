@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "irlap.h"
 #include "irlap_defs.h"
 
 union irlap_frame_hdr {
@@ -15,6 +16,8 @@ union irlap_frame_hdr {
 
 typedef union irlap_frame_hdr irlap_frame_hdr_t;
 
+struct irlap;
+
 #include "irlap_discovery.h"
 #include "irlap_frame_wrapper.h"
 #include "../irphy/irphy.h"
@@ -25,10 +28,6 @@ struct irlap_ops {
 };
 
 typedef struct list_head irlap_connection_list_t;
-
-struct irlap_connection {
-  irlap_connection_addr_t connection_address;
-};
 
 struct irlap {
 	void* priv;
@@ -52,6 +51,14 @@ struct irlap {
   void* state_lock;
 
   irlap_wrapper_state_t wrapper_state;
+};
+
+typedef int (*irlap_frame_handler_f)(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool pf);
+
+struct irlap_frame_handler {
+  uint8_t control;
+  irlap_frame_handler_f handle_cmd;
+  irlap_frame_handler_f handle_resp;
 };
 
 int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void* priv);

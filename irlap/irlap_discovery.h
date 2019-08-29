@@ -62,6 +62,10 @@ struct irlap_discovery {
 
 #define IRLAP_XID_SLOT_NUM_FINAL 0xFF
 
+#define IRLAP_FRAME_IS_XID_CMD(hdr) ((hdr)->control & IRLAP_CMD_MASK == IRLAP_CMD_XID)
+#define IRLAP_FRAME_IS_XID_RESP(hdr) ((hdr)->control & IRLAP_RESP_MASK == IRLAP_RESP_XID)
+#define IRLAP_FRAME_IS_XID(hdr) (IRLAP_FRAME_IS_XID_CMD((hdr)) || IRLAP_FRAME_IS_XID_RESP((hdr)))
+
 union irlap_xid_frame {
   struct {
     uint8_t fi;
@@ -77,3 +81,5 @@ union irlap_xid_frame {
 };
 
 int irlap_discovery_request(struct irlap_discovery* disc, uint8_t num_slots, uint8_t* discovery_info, uint8_t discovery_info_len);
+int irlap_discovery_handle_xid_cmd(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool poll);
+int irlap_discovery_handle_xid_resp(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool final);

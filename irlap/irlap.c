@@ -7,6 +7,7 @@
 #include "irlap_frame_wrapper.h"
 #include "../irhal/irhal.h"
 #include "../util/crc.h"
+#include "irlap_discovery.h"
 
 #define LOCAL_TAG "IRDA LAP"
 
@@ -15,6 +16,12 @@
 #define IRLAP_LOGI(lap, fmt, ...) IRHAL_LOGI(lap->phy->hal, fmt, ##__VA_ARGS__)
 #define IRLAP_LOGW(lap, fmt, ...) IRHAL_LOGW(lap->phy->hal, fmt, ##__VA_ARGS__)
 #define IRLAP_LOGE(lap, fmt, ...) IRHAL_LOGE(lap->phy->hal, fmt, ##__VA_ARGS__)
+
+static struct irlap_frame_handler frame_handlers[] = {
+  { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_CMD_XID, irlap_discovery_handle_xid_cmd, NULL },
+  { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_RESP_XID, NULL, irlap_discovery_handle_xid_resp },
+  { 0, NULL, NULL }
+};
 
 static int irlap_media_busy(struct irlap* lap);
 static void irlap_handle_irda_event(struct irphy* phy, irphy_event_t event, void* priv);
@@ -35,13 +42,11 @@ int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void
   if(err) {
     goto fail;
   }
-  IRLAP_LOGD(lap, "PHY lock is %p", lap->phy_lock);
 
   err = irlap_lock_alloc(lap, &lap->state_lock);
   if(err) {
     goto fail_phy_lock;
   }
-  IRLAP_LOGD(lap, "State lock is %p", lap->state_lock);
 
   err = irlap_media_busy(lap);
   if(err) {
@@ -76,7 +81,7 @@ int irlap_regenerate_address(struct irlap* lap) {
 
 static unsigned int irlap_get_num_extra_bof(struct irlap* lap, irlap_frame_hdr_t* hdr) {
 	if(IRLAP_STATE_IS_CONTENTION(lap->state)) {
-		return IRLAP_FRAME_ADDITIONAL_BOF_CONTETION;
+		return IRLAP_FRAME_ADDITIONAL_BOF_CONTENTION;
 	}
 
 	return lap->additional_bof;
@@ -163,8 +168,38 @@ int irlap_clear_timer(struct irlap* lap, int timer) {
 }
 
 int irlap_handle_frame(uint8_t* data, size_t len, void* priv) {
+  struct irlap_frame_handler* hndlr = frame_handlers;
   struct irlap* lap = priv;
   IRLAP_LOGI(lap, "Got unwrapped frame with %zu bytes", len);
+  irlap_frame_hdr_t frame_hdr;
+	if(len < sizeof(frame_hdr.data)) {
+    IRLAP_LOGD(lap, "Got frame shorter than %zu bytes, missing full header", sizeof(frame_hdr.data));
+		return -EINVAL;
+	}
+  memcpy(frame_hdr.data, data, sizeof(frame_hdr.data));
+	data += sizeof(frame_hdr.data);
+	len -= sizeof(frame_hdr.data);
+  
+  IRLAP_LOGV(lap, "Frame control: %02x", frame_hdr.control);
+  while(hndlr->handle_cmd != NULL || hndlr->handle_resp != NULL) {
+    if(IRLAP_FRAME_MASK_POLL_FINAL(frame_hdr.control) != IRLAP_FRAME_MASK_POLL_FINAL(hndlr->control)) {
+      goto next;
+    }
+    if(IRLAP_FRAME_IS_COMMAND(&frame_hdr) && hndlr->handle_cmd != NULL) {
+      bool poll = IRLAP_FRAME_IS_POLL_FINAL(&frame_hdr);
+      if(hndlr->handle_cmd(lap, NULL, data, len, poll) == IRLAP_FRAME_HANDLED) {
+        return 0;
+      }
+    }
+    if(IRLAP_FRAME_IS_RESPONSE(&frame_hdr) && hndlr->handle_resp != NULL) {
+      bool final = IRLAP_FRAME_IS_POLL_FINAL(&frame_hdr);
+      if(hndlr->handle_resp(lap, NULL, data, len, final) == IRLAP_FRAME_HANDLED) {
+        return 0;
+      }
+    }
+next:
+    hndlr++;
+  }
   return 0;
 }
 
