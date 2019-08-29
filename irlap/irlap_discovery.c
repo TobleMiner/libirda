@@ -43,8 +43,14 @@ static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc) {
   };
 
   irlap_discovery_frame_init(lap, &frame);
-  frame.dst_address = IRLAP_ADDR_BCAST;
-  frame.flags = irlap_discovery_slot_table[disc->num_slots] & IRLAP_XID_FRAME_FLAGS_MASK;
+  frame.flags = irlap_discovery_slot_table[disc->num_slots];
+  if(disc->conflict_address == IRLAP_ADDR_NULL) {
+    frame.dst_address = IRLAP_ADDR_BCAST;
+  } else {
+    frame.dst_address = disc->conflict_address;
+    frame.flags |= IRLAP_XID_FRAME_FLAGS_GENERATE_NEW_ADDRESS;
+  }
+  frame.flags &= IRLAP_XID_FRAME_FLAGS_MASK;
   if(disc->current_slot < disc->num_slots) {
     frame.slot = disc->current_slot;
     err = irlap_send_frame(lap, &hdr, frame.data, sizeof(frame.data));
@@ -67,8 +73,14 @@ static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc) {
       IRLAP_DISC_LOGE(disc, "Failed to send final discovery frame: %d", err);
       goto fail;
     }
-    if(disc->ops.confirm) {
-      disc->ops.confirm(IRLAP_DISCOVERY_RESULT_OK, &disc->discovery_log, lap->priv);
+    if(disc->conflict_address == IRLAP_ADDR_NULL) {
+      if(disc->discovery_ops.confirm) {
+        disc->discovery_ops.confirm(IRLAP_DISCOVERY_RESULT_OK, &disc->discovery_log, lap->priv);
+      }
+    } else {
+      if(disc->new_address_ops.confirm) {
+        disc->new_address_ops.confirm(IRLAP_DISCOVERY_RESULT_OK, &disc->discovery_log, lap->priv);
+      }
     }
     {
       irlap_discovery_log_list_t *cursor, *next;
@@ -87,8 +99,8 @@ fail:
   return err;
 }
 
-int irlap_discovery_request(struct irlap_discovery* disc, uint8_t num_slots, uint8_t* discovery_info, uint8_t discovery_info_len) {
-  int err;
+static int irlap_discovery_request_(struct irlap_discovery* disc, uint8_t num_slots, uint8_t* discovery_info, uint8_t discovery_info_len, irlap_addr_t new_addr) {
+  int err = 0;
 	struct irlap* lap;
   if(num_slots >= IRLAP_DISCOVERY_MAX_SLOTS) {
     IRLAP_DISC_LOGE(disc, "Invalid number of discovery slots. Must be at least one and at most 16");
@@ -121,7 +133,15 @@ int irlap_discovery_request(struct irlap_discovery* disc, uint8_t num_slots, uin
 
 	if(irlap_is_media_busy(lap)) {
     IRLAP_DISC_LOGW(disc, "Media is busy, can't discover");
-		err = lap->discovery.ops.confirm(IRLAP_DISCOVERY_RESULT_MEDIA_BUSY, NULL, lap->priv);
+    if(new_addr == IRLAP_ADDR_NULL) {
+      if(disc->discovery_ops.confirm) {
+        err = disc->discovery_ops.confirm(IRLAP_DISCOVERY_RESULT_MEDIA_BUSY, NULL, lap->priv);
+      }
+    } else {
+      if(disc->new_address_ops.confirm) {
+        err = disc->new_address_ops.confirm(IRLAP_DISCOVERY_RESULT_MEDIA_BUSY, NULL, lap->priv);
+      }
+    }
     goto fail_locked;
 	}
 
@@ -129,6 +149,8 @@ int irlap_discovery_request(struct irlap_discovery* disc, uint8_t num_slots, uin
 	disc->num_slots = num_slots;
 	disc->current_slot = 0;
   INIT_LIST_HEAD(disc->discovery_log);
+
+  disc->conflict_address = new_addr;
 
   err = irlap_discovery_send_xid_cmd(disc);
   if(err) {
@@ -139,6 +161,14 @@ fail_locked:
   irlap_lock_put(lap, lap->state_lock);
 fail:
   return err;
+}
+
+int irlap_new_address_request(struct irlap_discovery* disc, uint8_t num_slots, uint8_t* discovery_info, uint8_t discovery_info_len, irlap_addr_t conflict_addr) {
+  return irlap_discovery_request_(disc, num_slots, discovery_info, discovery_info_len, conflict_addr);
+}
+
+int irlap_discovery_request(struct irlap_discovery* disc, uint8_t num_slots, uint8_t* discovery_info, uint8_t discovery_info_len) {
+  return irlap_discovery_request_(disc, num_slots, discovery_info, discovery_info_len, IRLAP_ADDR_NULL);
 }
 
 static int irlap_discovery_validate_xid_frame(struct irlap_discovery* disc, union irlap_xid_frame* frame, uint8_t* data, size_t len) {
@@ -263,9 +293,9 @@ static int irlap_discovery_handle_xid_cmd_discovery_additional(struct irlap_disc
     };
     irlap_clear_timer(lap, disc->query_timer);
     lap->state = IRLAP_STATION_MODE_NDM;
-    if(disc->ops.indication) {
+    if(disc->discovery_ops.indication) {
       memcpy(log.discovery_info.data, frame->discovery_info, discovery_info_len);
-      disc->ops.indication(&log, lap->priv);
+      disc->discovery_ops.indication(&log, lap->priv);
     }
     return IRLAP_FRAME_HANDLED;
   }
