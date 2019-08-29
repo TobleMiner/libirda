@@ -72,3 +72,5 @@ irlap_addr_t irlap_get_address(struct irlap* lap);
 int irlap_set_timer(struct irlap* lap, unsigned int timeout_ms, irhal_timer_cb cb, void* priv);
 int irlap_clear_timer(struct irlap* lap, int timer);
 int irlap_send_frame(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* payload, size_t payload_len);
+
+#define irlap_random_u8(lap, val, min, max) (irhal_random_u8((lap)->phy->hal, (val), (min), (max)))

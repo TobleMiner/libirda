@@ -103,3 +103,13 @@ static inline void irhal_lock_take(struct irhal* hal, void* lock) {
 static inline void irhal_lock_put(struct irhal* hal, void* lock) {
   return hal->hal_ops.lock_put(lock, hal->priv);
 }
+
+static inline int irhal_random_u8(struct irhal* hal, uint8_t* val, uint8_t min, uint8_t max) {
+  int err = irhal_random_bytes(hal, val, sizeof(*val));
+  if(err) {
+    return err;
+  }
+  *val %= (max - min);
+  *val += min;
+  return 0;
+}
