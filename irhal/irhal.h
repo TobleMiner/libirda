@@ -51,6 +51,10 @@ struct irhal_hal_ops {
   irhal_lock_free_f        lock_free;
   irhal_lock_take_f        lock_take;
   irhal_lock_put_f         lock_put;
+  irhal_lock_alloc_f       lock_alloc_reentrant;
+  irhal_lock_free_f        lock_free_reentrant;
+  irhal_lock_take_f        lock_take_reentrant;
+  irhal_lock_put_f         lock_put_reentrant;
 };
 
 struct irhal {
@@ -102,6 +106,22 @@ static inline void irhal_lock_take(struct irhal* hal, void* lock) {
 
 static inline void irhal_lock_put(struct irhal* hal, void* lock) {
   return hal->hal_ops.lock_put(lock, hal->priv);
+}
+
+static inline int irhal_lock_alloc_reentrant(struct irhal* hal, void** lock) {
+  return hal->hal_ops.lock_alloc_reentrant(lock, hal->priv);
+}
+
+static inline void irhal_lock_free_reentrant(struct irhal* hal, void* lock) {
+  return hal->hal_ops.lock_free_reentrant(lock, hal->priv);
+}
+
+static inline void irhal_lock_take_reentrant(struct irhal* hal, void* lock) {
+  return hal->hal_ops.lock_take_reentrant(lock, hal->priv);
+}
+
+static inline void irhal_lock_put_reentrant(struct irhal* hal, void* lock) {
+  return hal->hal_ops.lock_put_reentrant(lock, hal->priv);
 }
 
 static inline int irhal_random_u8(struct irhal* hal, uint8_t* val, uint8_t min, uint8_t max) {

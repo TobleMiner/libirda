@@ -38,12 +38,12 @@ int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void
     goto fail;
   }
 
-  err = irlap_lock_alloc(lap, &lap->phy_lock);
+  err = irlap_lock_alloc_reentrant(lap, &lap->phy_lock);
   if(err) {
     goto fail;
   }
 
-  err = irlap_lock_alloc(lap, &lap->state_lock);
+  err = irlap_lock_alloc_reentrant(lap, &lap->state_lock);
   if(err) {
     goto fail_phy_lock;
   }
@@ -68,9 +68,9 @@ int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void
 fail_discovery:
   irlap_discovery_free(&lap->discovery);
 fail_state_lock:
-  irlap_lock_free(lap, &lap->state_lock);
+  irlap_lock_free_reentrant(lap, &lap->state_lock);
 fail_phy_lock:
-  irlap_lock_free(lap, &lap->phy_lock);
+  irlap_lock_free_reentrant(lap, &lap->phy_lock);
 fail:
   return err;
 }
@@ -164,6 +164,22 @@ void irlap_lock_put(struct irlap* lap, void* lock) {
   irhal_lock_put(lap->phy->hal, lock);
 }
 
+int irlap_lock_alloc_reentrant(struct irlap* lap, void** lock) {
+  return irhal_lock_alloc_reentrant(lap->phy->hal, lock);
+}
+
+void irlap_lock_free_reentrant(struct irlap* lap, void* lock) {
+  irhal_lock_alloc_reentrant(lap->phy->hal, lock);
+}
+
+void irlap_lock_take_reentrant(struct irlap* lap, void* lock) {
+  irhal_lock_take_reentrant(lap->phy->hal, lock);
+}
+
+void irlap_lock_put_reentrant(struct irlap* lap, void* lock) {
+  irhal_lock_put_reentrant(lap->phy->hal, lock);
+}
+
 irlap_addr_t irlap_get_address(struct irlap* lap) {
   return lap->address;
 }
@@ -217,15 +233,15 @@ next:
 
 void irlap_media_busy_timeout(void* arg) {
   struct irlap* lap = arg;
-  irlap_lock_take(lap, lap->state_lock);
+  irlap_lock_take_reentrant(lap, lap->state_lock);
   lap->media_busy_timer = 0;
   lap->media_busy = false;
-  irlap_lock_put(lap, lap->state_lock);
+  irlap_lock_put_reentrant(lap, lap->state_lock);
 }
 
 static int irlap_media_busy(struct irlap* lap) {
   int err;
-  irlap_lock_take(lap, lap->state_lock);
+  irlap_lock_take_reentrant(lap, lap->state_lock);
   lap->media_busy = true;
   if(lap->media_busy_timer) {
     irlap_clear_timer(lap, lap->media_busy_timer);
@@ -238,7 +254,7 @@ static int irlap_media_busy(struct irlap* lap) {
   } else {
     lap->media_busy_timer = err;
   }
-  irlap_lock_put(lap, lap->state_lock);
+  irlap_lock_put_reentrant(lap, lap->state_lock);
   return err < 0 ? err : 0;
 }
 

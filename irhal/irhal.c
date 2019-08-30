@@ -23,7 +23,7 @@ int irhal_init(struct irhal* hal, struct irhal_hal_ops* hal_ops, uint64_t max_ti
     goto fail_timers;
   }
   hal->num_timers = IRHAL_NUM_TIMER_DEFAULT;
-  err = irhal_lock_alloc(hal, &hal->timer_lock);
+  err = irhal_lock_alloc_reentrant(hal, &hal->timer_lock);
   if(err) {
     goto fail_fire_list;
   }
@@ -145,9 +145,9 @@ static void irhal_alarm_callback(struct irhal* hal) {
   time_ns_t now;
   irhal_now(hal, &now);
   IRHAL_LOGV(hal, "Got alarm callback");
-  irhal_lock_take(hal, hal->timer_lock);
+  irhal_lock_take_reentrant(hal, hal->timer_lock);
   irhal_recalculate_timeout(hal, true, &now);
-  irhal_lock_put(hal, hal->timer_lock);
+  irhal_lock_put_reentrant(hal, hal->timer_lock);
   for(i = 0; i < hal->num_timers; i++) {
     struct irhal_timer_fire* fire_entry = &hal->fire_list[i];
     if(fire_entry->cb) {
@@ -192,7 +192,7 @@ int irhal_set_timer(struct irhal* hal, time_ns_t* timeout, irhal_timer_cb cb, vo
   int i;
   int err;
   IRHAL_LOGV(hal, "Setting up timer for sec = %lu sec, nsec = %lu", timeout->sec, timeout->nsec);
-  irhal_lock_take(hal, hal->timer_lock);
+  irhal_lock_take_reentrant(hal, hal->timer_lock);
   for(i = 0; i < hal->num_timers; i++) {
     struct irhal_timer* timer = &hal->timers[i];
     if(!timer->enabled) {
@@ -210,7 +210,7 @@ int irhal_set_timer(struct irhal* hal, time_ns_t* timeout, irhal_timer_cb cb, vo
   }
   err = irhal_set_timer(hal, timeout, cb, priv);
 out:
-  irhal_lock_put(hal, hal->timer_lock);
+  irhal_lock_put_reentrant(hal, hal->timer_lock);
   return err;
 }
 
@@ -220,7 +220,7 @@ int irhal_clear_timer(struct irhal* hal, int timerid) {
   if(timerid < 0 || timerid >= hal->num_timers) {
     return -EINVAL;
   }
-  irhal_lock_take(hal, hal->timer_lock);
+  irhal_lock_take_reentrant(hal, hal->timer_lock);
   timer = &hal->timers[timerid];
   if(!timer->enabled) {
     err = -EINVAL;
@@ -229,7 +229,7 @@ int irhal_clear_timer(struct irhal* hal, int timerid) {
   timer->enabled = false;
   err = irhal_recalculate_timeout(hal, false, NULL);
 out:
-  irhal_lock_put(hal, hal->timer_lock);
+  irhal_lock_put_reentrant(hal, hal->timer_lock);
   return err;
 }
 

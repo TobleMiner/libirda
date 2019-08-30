@@ -23,12 +23,21 @@ static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc);
 
 int irlap_discovery_init(struct irlap_discovery* disc) {
   struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
-  return irlap_lock_alloc(lap, &disc->discovery_log_lock);
+  int err = irlap_lock_alloc(lap, &disc->discovery_log_final_lock);
+  if(err) {
+    IRLAP_DISC_LOGE(disc, "Failed to allocate discovery log final lock");
+    goto fail;
+  }
+
+  return 0;
+
+fail:
+  return err;
 }
 
 void irlap_discovery_free(struct irlap_discovery* disc) {
   struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
-  irlap_lock_free(lap, &disc->discovery_log_lock);
+  irlap_lock_free(lap, &disc->discovery_log_final_lock);
 }
 
 static void irlap_slot_timeout(void* priv) {
@@ -83,9 +92,11 @@ static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc) {
       IRLAP_DISC_LOGE(disc, "Failed to send final discovery frame: %d", err);
       goto fail;
     }
-    irlap_lock_take(lap, disc->discovery_log_lock);
+    irlap_lock_take(lap, disc->discovery_log_final_lock);
     list_replace(&disc->discovery_log, &disc->discovery_log_final);
+    irlap_lock_take_reentrant(lap, lap->state_lock);
     lap->state = IRLAP_STATION_MODE_NDM;
+    irlap_lock_put_reentrant(lap, lap->state_lock);
     if(disc->conflict_address == IRLAP_ADDR_NULL) {
       if(disc->discovery_ops.confirm) {
         disc->discovery_ops.confirm(IRLAP_DISCOVERY_RESULT_OK, &disc->discovery_log_final, lap->priv);
@@ -102,13 +113,15 @@ static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc) {
         free(entry);
       }
     }
-    irlap_lock_put(lap, disc->discovery_log_lock);
+    irlap_lock_put(lap, disc->discovery_log_final_lock);
   }
 
   return 0;
 
 fail:
+  irlap_lock_take_reentrant(lap, lap->state_lock);
   lap->state = IRLAP_STATION_MODE_NDM;
+  irlap_lock_put_reentrant(lap, lap->state_lock);
   return err;
 }
 
@@ -137,7 +150,7 @@ static int irlap_discovery_request_(struct irlap_discovery* disc, uint8_t num_sl
   memcpy(disc->discovery_info, discovery_info, discovery_info_len);
 
   lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
-  irlap_lock_take(lap, lap->state_lock);
+  irlap_lock_take_reentrant(lap, lap->state_lock);
 	if(lap->state != IRLAP_STATION_MODE_NDM) {
     IRLAP_DISC_LOGW(disc, "Station is not in NDM state, can't discover");
     err = -EAGAIN;
@@ -161,9 +174,7 @@ static int irlap_discovery_request_(struct irlap_discovery* disc, uint8_t num_sl
   lap->state = IRLAP_STATION_MODE_QUERY;
 	disc->num_slots = num_slots;
 	disc->current_slot = 0;
-  irlap_lock_take(lap, disc->discovery_log_lock);
   INIT_LIST_HEAD(disc->discovery_log);
-  irlap_lock_put(lap, disc->discovery_log_lock);
 
   disc->conflict_address = new_addr;
 
@@ -173,7 +184,7 @@ static int irlap_discovery_request_(struct irlap_discovery* disc, uint8_t num_sl
   }
 
 fail_locked:
-  irlap_lock_put(lap, lap->state_lock);
+  irlap_lock_put_reentrant(lap, lap->state_lock);
 fail:
   return err;
 }
@@ -229,9 +240,9 @@ static void irlap_query_timeout(void* priv) {
   struct irlap_discovery* disc = priv;
 	struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
   disc->query_timer = 0;
-  irlap_lock_take(lap, lap->state_lock);
+  irlap_lock_take_reentrant(lap, lap->state_lock);
   lap->state = IRLAP_STATION_MODE_NDM;
-  irlap_lock_put(lap, lap->state_lock);
+  irlap_lock_put_reentrant(lap, lap->state_lock);
 }
 
 static int irlap_discovery_send_xid_response_discovery(struct irlap_discovery* disc, union irlap_xid_frame* query_frame) {
@@ -342,7 +353,7 @@ static int irlap_discovery_handle_xid_cmd_discovery(struct irlap_discovery* disc
     goto fail;
   }
 
-  irlap_lock_take(lap, lap->state_lock);
+  irlap_lock_take_reentrant(lap, lap->state_lock);
   switch(lap->state) {
     case IRLAP_STATION_MODE_NDM:
       IRLAP_DISC_LOGD(disc, "Starting xid discovery response");
@@ -359,7 +370,7 @@ static int irlap_discovery_handle_xid_cmd_discovery(struct irlap_discovery* disc
   }
 
 fail_locked:
-  irlap_lock_put(lap, lap->state_lock);
+  irlap_lock_put_reentrant(lap, lap->state_lock);
 fail:
   return err;
 }
@@ -384,7 +395,7 @@ int irlap_discovery_handle_xid_cmd(struct irlap* lap, struct irlap_connection* c
 static int irlap_discovery_handle_xid_resp_discovery(struct irlap_discovery* disc, union irlap_xid_frame* frame, uint8_t discovery_info_len) {
   int err = IRLAP_FRAME_HANDLED;
 	struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
-  irlap_lock_take(lap, lap->state_lock);
+  irlap_lock_take_reentrant(lap, lap->state_lock);
 
   if(lap->state != IRLAP_STATION_MODE_QUERY) {
     IRLAP_DISC_LOGD(disc, "Station not in query mode, ignoring xid discovery response");
@@ -408,7 +419,7 @@ static int irlap_discovery_handle_xid_resp_discovery(struct irlap_discovery* dis
 
   LIST_APPEND(&entry->list, &disc->discovery_log);
 fail_locked:
-  irlap_lock_put(lap, lap->state_lock);
+  irlap_lock_put_reentrant(lap, lap->state_lock);
   return err;
 }
 

@@ -59,7 +59,7 @@ struct irlap_discovery {
   uint8_t discovery_info_len;
   irlap_discovery_log_list_t discovery_log;
   irlap_discovery_log_list_t discovery_log_final;
-  void* discovery_log_lock;
+  void* discovery_log_final_lock;
   uint8_t slot;
   bool frame_sent;
   irlap_addr_t conflict_address;
