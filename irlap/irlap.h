@@ -32,7 +32,7 @@ struct irlap_ops {
 typedef struct list_head irlap_connection_list_t;
 
 struct irlap {
-	void* priv;
+  void* priv;
   struct irphy* phy;
   struct irlap_ops ops;
 
@@ -40,11 +40,11 @@ struct irlap {
 
   irlap_station_mode_t state;
   irlap_station_role_t role;
-	bool media_busy;
+  bool media_busy;
   int media_busy_timer;
   size_t media_busy_counter;
 
-	unsigned int additional_bof;
+  unsigned int additional_bof;
 
   irlap_connection_list_t connections;
 

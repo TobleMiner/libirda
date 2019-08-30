@@ -12,9 +12,9 @@ typedef struct list_head irlap_discovery_log_list_t;
 #define IRLAP_DISCOVERY_INFO_MAX_LEN 32
 
 typedef enum {
-	IRLAP_DISCOVERY_RESULT_OK = 0,
-	IRLAP_DISCOVERY_RESULT_MEDIA_BUSY,
-	IRLAP_DISCOVERY_RESULT_CANCELED,
+  IRLAP_DISCOVERY_RESULT_OK = 0,
+  IRLAP_DISCOVERY_RESULT_MEDIA_BUSY,
+  IRLAP_DISCOVERY_RESULT_CANCELED,
 } irlap_discovery_result_t;
 
 struct irlap_discovery_log {
@@ -51,10 +51,10 @@ struct irlap_new_address_ops {
 struct irlap_discovery {
   struct irlap_discovery_ops discovery_ops;
   struct irlap_new_address_ops new_address_ops;
-	uint8_t num_slots;
-	uint8_t current_slot;
-	int slot_timer;
-	int query_timer;
+  uint8_t num_slots;
+  uint8_t current_slot;
+  int slot_timer;
+  int query_timer;
   uint8_t discovery_info[IRLAP_DISCOVERY_INFO_MAX_LEN];
   uint8_t discovery_info_len;
   irlap_discovery_log_list_t discovery_log;

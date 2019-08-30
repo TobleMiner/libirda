@@ -35,7 +35,7 @@ int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void
   memset(lap, 0, sizeof(*lap));
   lap->phy = phy;
   lap->ops = *ops;
-	lap->priv = priv;
+  lap->priv = priv;
 
   err = irlap_regenerate_address(lap);
   if(err) {
@@ -102,7 +102,7 @@ int irlap_indirect_call(struct irlap* lap, int type, void* data) {
 }
 
 bool irlap_is_media_busy(struct irlap* lap) {
-	return lap->media_busy;
+  return lap->media_busy;
 }
 
 int irlap_regenerate_address(struct irlap* lap) {
@@ -117,34 +117,34 @@ int irlap_regenerate_address(struct irlap* lap) {
 }
 
 static unsigned int irlap_get_num_extra_bof(struct irlap* lap, irlap_frame_hdr_t* hdr) {
-	if(IRLAP_STATE_IS_CONTENTION(lap->state)) {
-		return IRLAP_FRAME_ADDITIONAL_BOF_CONTENTION;
-	}
+  if(IRLAP_STATE_IS_CONTENTION(lap->state)) {
+    return IRLAP_FRAME_ADDITIONAL_BOF_CONTENTION;
+  }
 
-	return lap->additional_bof;
+  return lap->additional_bof;
 }
 
 int irlap_send_frame(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* payload, size_t payload_len) {
-	int err;
-	uint8_t* frame_data;
-	unsigned int additional_bof = irlap_get_num_extra_bof(lap, hdr);
-	ssize_t frame_size = irlap_wrapper_get_wrapped_size(IRLAP_FRAME_WRAPPER_ASYNC, hdr, payload, payload_len, additional_bof);
-	if(frame_size < 0) {
-		err = frame_size;
-		goto fail;
-	}
+  int err;
+  uint8_t* frame_data;
+  unsigned int additional_bof = irlap_get_num_extra_bof(lap, hdr);
+  ssize_t frame_size = irlap_wrapper_get_wrapped_size(IRLAP_FRAME_WRAPPER_ASYNC, hdr, payload, payload_len, additional_bof);
+  if(frame_size < 0) {
+    err = frame_size;
+    goto fail;
+  }
 
-	frame_data = malloc(frame_size);
-	if(!frame_data) {
-		err = -ENOMEM;
-		goto fail;
-	}
+  frame_data = malloc(frame_size);
+  if(!frame_data) {
+    err = -ENOMEM;
+    goto fail;
+  }
 
   frame_size = irlap_wrapper_wrap(IRLAP_FRAME_WRAPPER_ASYNC, frame_data, frame_size, hdr, payload, payload_len, additional_bof);
-	if(frame_size < 0) {
-		err = frame_size;
-		goto fail_alloc;
-	}
+  if(frame_size < 0) {
+    err = frame_size;
+    goto fail_alloc;
+  }
 
 /*
   IRLAP_LOGD(lap, "==== Wrapped frame START ====");
@@ -155,23 +155,23 @@ int irlap_send_frame(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* payload
   IRLAP_LOGD(lap, "==== Wrapped frame END ====");
 */
   err = irphy_tx_enable(lap->phy);
-	if(err) {
-		goto fail_alloc;
-	}
+  if(err) {
+    goto fail_alloc;
+  }
 
   frame_size = irphy_tx(lap->phy, frame_data, frame_size);
-	if(frame_size < 0) {
-		err = frame_size;
-		goto fail_tx;
-	}
+  if(frame_size < 0) {
+    err = frame_size;
+    goto fail_tx;
+  }
 
-	err = irphy_tx_wait(lap->phy);
+  err = irphy_tx_wait(lap->phy);
 fail_tx:
-	irphy_tx_disable(lap->phy);
+  irphy_tx_disable(lap->phy);
 fail_alloc:
-	free(frame_data);
+  free(frame_data);
 fail:
-	return err;
+  return err;
 }
 
 int irlap_lock_alloc(struct irlap* lap, void** lock) {
@@ -226,13 +226,13 @@ int irlap_handle_frame(uint8_t* data, size_t len, void* priv) {
   struct irlap* lap = priv;
   IRLAP_LOGD(lap, "Got unwrapped frame with %zu bytes", len);
   irlap_frame_hdr_t frame_hdr;
-	if(len < sizeof(frame_hdr.data)) {
+  if(len < sizeof(frame_hdr.data)) {
     IRLAP_LOGD(lap, "Got frame shorter than %zu bytes, missing full header", sizeof(frame_hdr.data));
-		return -EINVAL;
-	}
+    return -EINVAL;
+  }
   memcpy(frame_hdr.data, data, sizeof(frame_hdr.data));
-	data += sizeof(frame_hdr.data);
-	len -= sizeof(frame_hdr.data);
+  data += sizeof(frame_hdr.data);
+  len -= sizeof(frame_hdr.data);
   
   IRLAP_LOGV(lap, "Frame control: %02x", frame_hdr.control);
   while(hndlr->handle_cmd != NULL || hndlr->handle_resp != NULL) {
