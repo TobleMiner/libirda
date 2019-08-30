@@ -169,11 +169,13 @@ static int irlap_wrapper_unwrap_async(irlap_wrapper_state_t* state, uint8_t* dat
       if(!state->in_frame) {
         goto fail;
       }
-      state->data[state->write_ptr] = *data;
-      if(IRLAP_FRAME_IS_CE(state->prev_byte)) {
-        state->data[state->write_ptr] ^= IRLAP_FRAME_WRAP_ASYNC_XOR;
+      if(!IRLAP_FRAME_IS_CE(*data)) {
+        state->data[state->write_ptr] = *data;
+        if(IRLAP_FRAME_IS_CE(state->prev_byte)) {
+          state->data[state->write_ptr] ^= IRLAP_FRAME_WRAP_ASYNC_XOR;
+        }
+        state->write_ptr++;
       }
-      state->write_ptr++;
     }
     goto next;
 
