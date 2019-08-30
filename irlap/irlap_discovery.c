@@ -166,7 +166,7 @@ static int irlap_discovery_request_(struct irlap_discovery* disc, uint8_t num_sl
   lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
   irlap_lock_take_reentrant(lap, lap->state_lock);
 	if(lap->state != IRLAP_STATION_MODE_NDM) {
-    IRLAP_DISC_LOGW(disc, "Station is not in NDM state, can't discover", lap->state);
+    IRLAP_DISC_LOGW(disc, "Station is not in NDM state, can't discover");
     err = -EAGAIN;
     goto fail_locked;
 	}
