@@ -23,6 +23,10 @@ static struct irlap_frame_handler frame_handlers[] = {
   { 0, NULL, NULL }
 };
 
+static irlap_indirection_f event_indirections[] = {
+  irlap_discovery_indirect_busy,
+};
+
 static int irlap_media_busy(struct irlap* lap);
 static void irlap_handle_irda_event(struct irphy* phy, irphy_event_t event, void* priv);
 
@@ -53,18 +57,25 @@ int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void
     goto fail_state_lock;
   }
 
-  err = irlap_media_busy(lap);
+  err = eventqueue_init(&lap->events, lap->phy->hal, 32);
   if(err) {
     goto fail_discovery;
+  }
+
+  err = irlap_media_busy(lap);
+  if(err) {
+    goto fail_eventqueue;
   }
 
   err = irphy_rx_enable(lap->phy, irlap_handle_irda_event, lap);
   if(err) {
-    goto fail_discovery;
+    goto fail_eventqueue;
   }
 
   return 0;
 
+fail_eventqueue:
+  eventqueue_free(&lap->events);
 fail_discovery:
   irlap_discovery_free(&lap->discovery);
 fail_state_lock:
@@ -73,6 +84,21 @@ fail_phy_lock:
   irlap_lock_free_reentrant(lap, &lap->phy_lock);
 fail:
   return err;
+}
+
+void irlap_event_loop(struct irlap* lap) {
+  while(true) {
+    struct event event = eventqueue_dequeue(&lap->events);
+    if(event.type >= 0 && event.type < ARRAY_LEN(event_indirections)) {
+      event_indirections[event.type](lap, event.data);
+    } else {
+      IRLAP_LOGE(lap, "BUG: event type (%d) outside indirection table bounds", event.type);
+    }
+  }
+}
+
+int irlap_indirect_call(struct irlap* lap, int type, void* data) {
+  return eventqueue_enqueue(&lap->events, type, data);
 }
 
 bool irlap_is_media_busy(struct irlap* lap) {

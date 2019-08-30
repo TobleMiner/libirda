@@ -6,6 +6,8 @@
 #include "irlap.h"
 #include "irlap_defs.h"
 
+#include "../util/eventqueue.h"
+
 union irlap_frame_hdr {
   struct {
     irlap_connection_addr_t connection_address;
@@ -51,6 +53,8 @@ struct irlap {
   void* state_lock;
 
   irlap_wrapper_state_t wrapper_state;
+
+  struct eventqueue events;
 };
 
 typedef int (*irlap_frame_handler_f)(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool pf);
@@ -61,7 +65,11 @@ struct irlap_frame_handler {
   irlap_frame_handler_f handle_resp;
 };
 
+typedef void (*irlap_indirection_f)(struct irlap* lap, void* data);
+
 int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void* priv);
+void irlap_event_loop(struct irlap* lap);
+int irlap_indirect_call(struct irlap* lap, int type, void* data);
 int irlap_regenerate_address(struct irlap* lap);
 bool irlap_is_media_busy(struct irlap* lap);
 int irlap_lock_alloc(struct irlap* lap, void** lock);
