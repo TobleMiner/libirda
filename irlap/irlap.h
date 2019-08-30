@@ -42,6 +42,7 @@ struct irlap {
   irlap_station_role_t role;
 	bool media_busy;
   int media_busy_timer;
+  size_t media_busy_counter;
 
 	unsigned int additional_bof;
 

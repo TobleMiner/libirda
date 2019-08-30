@@ -260,25 +260,29 @@ next:
 void irlap_media_busy_timeout(void* arg) {
   struct irlap* lap = arg;
   irlap_lock_take_reentrant(lap, lap->state_lock);
+  lap->media_busy_counter = 0;
   lap->media_busy_timer = 0;
   lap->media_busy = false;
   irlap_lock_put_reentrant(lap, lap->state_lock);
 }
 
 static int irlap_media_busy(struct irlap* lap) {
-  int err;
+  int err = 0;
   irlap_lock_take_reentrant(lap, lap->state_lock);
-  lap->media_busy = true;
-  if(lap->media_busy_timer) {
-    irlap_clear_timer(lap, lap->media_busy_timer);
-    lap->media_busy_timer = 0;
-  }
-  err = irlap_set_timer(lap, IRLAP_MEDIA_BUSY_TIMEOUT, irlap_media_busy_timeout, lap);
-  if(err < 0) {
-    IRLAP_LOGW(lap, "Failed to start media busy timer, clearing busy flag");
-    lap->media_busy = false;
-  } else {
-    lap->media_busy_timer = err;
+  if(++lap->media_busy_counter >= IRLAP_MEDIA_BUSY_THRESHOLD) {
+    lap->media_busy_counter = 0;
+    lap->media_busy = true;
+    if(lap->media_busy_timer) {
+      irlap_clear_timer(lap, lap->media_busy_timer);
+      lap->media_busy_timer = 0;
+    }
+    err = irlap_set_timer(lap, IRLAP_MEDIA_BUSY_TIMEOUT, irlap_media_busy_timeout, lap);
+    if(err < 0) {
+      IRLAP_LOGW(lap, "Failed to start media busy timer, clearing busy flag");
+      lap->media_busy = false;
+    } else {
+      lap->media_busy_timer = err;
+    }
   }
   irlap_lock_put_reentrant(lap, lap->state_lock);
   return err < 0 ? err : 0;

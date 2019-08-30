@@ -10,6 +10,8 @@ typedef uint8_t irlap_control_t;
 #define IRLAP_VERSION 0   // Always 0, see section section 5.7.1.4.1.4.1.5 IrLAP specification v1.1
 #define IRLAP_FORMAT_ID 1 // Always one, see section 5.7.1.4.1.3 IrLAP specification v1.1
 
+#define IRLAP_MEDIA_BUSY_THRESHOLD 10
+
 #define IRLAP_ERR_BASE    0x400
 #define IRLAP_ERR_ADDRESS (IRLAP_ERR_BASE + 1)
 
