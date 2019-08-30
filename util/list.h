@@ -64,7 +64,7 @@ static inline void list_replace(struct list_head* old, struct list_head* new) {
   new->next->prev = new;
 }
 
-inline size_t LIST_LENGTH(struct list_head* list) {
+static inline size_t list_length(struct list_head* list) {
   struct list_head* cursor;
   size_t len = 0;
 
