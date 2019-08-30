@@ -57,6 +57,13 @@ static inline void _list_append(struct list_head* prev, struct list_head* next, 
     } \
   } while(0)
 
+static inline void list_replace(struct list_head* old, struct list_head* new) {
+  new->prev = old->prev;
+  new->prev->next = new;
+  new->next = old->next;
+  new->next->prev = new;
+}
+
 inline size_t LIST_LENGTH(struct list_head* list) {
   struct list_head* cursor;
   size_t len = 0;
