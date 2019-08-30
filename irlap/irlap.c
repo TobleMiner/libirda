@@ -171,7 +171,7 @@ int irlap_clear_timer(struct irlap* lap, int timer) {
 int irlap_handle_frame(uint8_t* data, size_t len, void* priv) {
   struct irlap_frame_handler* hndlr = frame_handlers;
   struct irlap* lap = priv;
-  IRLAP_LOGI(lap, "Got unwrapped frame with %zu bytes", len);
+  IRLAP_LOGD(lap, "Got unwrapped frame with %zu bytes", len);
   irlap_frame_hdr_t frame_hdr;
 	if(len < sizeof(frame_hdr.data)) {
     IRLAP_LOGD(lap, "Got frame shorter than %zu bytes, missing full header", sizeof(frame_hdr.data));
