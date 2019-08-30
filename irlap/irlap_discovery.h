@@ -58,6 +58,8 @@ struct irlap_discovery {
   uint8_t discovery_info[IRLAP_DISCOVERY_INFO_MAX_LEN];
   uint8_t discovery_info_len;
   irlap_discovery_log_list_t discovery_log;
+  irlap_discovery_log_list_t discovery_log_final;
+  void* discovery_log_lock;
   uint8_t slot;
   bool frame_sent;
   irlap_addr_t conflict_address;
@@ -94,6 +96,8 @@ union irlap_xid_frame {
 #define IRLAP_XID_FRAME_MIN_SIZE (sizeof(((union irlap_xid_frame*)NULL)->data))
 #define IRLAP_XID_FRAME_MAX_SIZE (sizeof(((union irlap_xid_frame*)NULL)->data_info))
 
+int irlap_discovery_init(struct irlap_discovery* disc);
+void irlap_discovery_free(struct irlap_discovery* disc);
 int irlap_discovery_request(struct irlap_discovery* disc, uint8_t num_slots, uint8_t* discovery_info, uint8_t discovery_info_len);
 int irlap_new_address_request(struct irlap_discovery* disc, uint8_t num_slots, uint8_t* discovery_info, uint8_t discovery_info_len, irlap_addr_t conflict_addr);
 int irlap_discovery_handle_xid_cmd(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool poll);

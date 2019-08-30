@@ -48,18 +48,25 @@ int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void
     goto fail_phy_lock;
   }
 
-  err = irlap_media_busy(lap);
+  err = irlap_discovery_init(&lap->discovery);
   if(err) {
     goto fail_state_lock;
+  }
+
+  err = irlap_media_busy(lap);
+  if(err) {
+    goto fail_discovery;
   }
 
   err = irphy_rx_enable(lap->phy, irlap_handle_irda_event, lap);
   if(err) {
-    goto fail_state_lock;
+    goto fail_discovery;
   }
 
   return 0;
 
+fail_discovery:
+  irlap_discovery_free(&lap->discovery);
 fail_state_lock:
   irlap_lock_free(lap, &lap->state_lock);
 fail_phy_lock:

@@ -21,6 +21,16 @@ static uint8_t irlap_discovery_slot_reverse_table[4] = { 1, 6, 8, 16 };
 
 static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc);
 
+int irlap_discovery_init(struct irlap_discovery* disc) {
+  struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
+  return irlap_lock_alloc(lap, &disc->discovery_log_lock);
+}
+
+void irlap_discovery_free(struct irlap_discovery* disc) {
+  struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
+  irlap_lock_free(lap, &disc->discovery_log_lock);
+}
+
 static void irlap_slot_timeout(void* priv) {
   struct irlap_discovery* disc = priv;
   disc->slot_timer = 0;
@@ -35,7 +45,7 @@ static void irlap_discovery_frame_init(struct irlap* lap, union irlap_xid_frame*
 
 static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc) {
   int err;
-	struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
+  struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
   union irlap_xid_frame frame;
   irlap_frame_hdr_t hdr = {
     .connection_address = IRLAP_FRAME_MAKE_ADDRESS_COMMAND(IRLAP_CONNECTION_ADDRESS_BCAST),
@@ -73,23 +83,26 @@ static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc) {
       IRLAP_DISC_LOGE(disc, "Failed to send final discovery frame: %d", err);
       goto fail;
     }
+    irlap_lock_take(lap, disc->discovery_log_lock);
+    list_replace(&disc->discovery_log, &disc->discovery_log_final);
+    lap->state = IRLAP_STATION_MODE_NDM;
     if(disc->conflict_address == IRLAP_ADDR_NULL) {
       if(disc->discovery_ops.confirm) {
-        disc->discovery_ops.confirm(IRLAP_DISCOVERY_RESULT_OK, &disc->discovery_log, lap->priv);
+        disc->discovery_ops.confirm(IRLAP_DISCOVERY_RESULT_OK, &disc->discovery_log_final, lap->priv);
       }
     } else {
       if(disc->new_address_ops.confirm) {
-        disc->new_address_ops.confirm(IRLAP_DISCOVERY_RESULT_OK, &disc->discovery_log, lap->priv);
+        disc->new_address_ops.confirm(IRLAP_DISCOVERY_RESULT_OK, &disc->discovery_log_final, lap->priv);
       }
     }
     {
       irlap_discovery_log_list_t *cursor, *next;
-      LIST_FOR_EACH_SAFE(cursor, next, &disc->discovery_log) {
+      LIST_FOR_EACH_SAFE(cursor, next, &disc->discovery_log_final) {
         struct irlap_discovery_log_entry* entry = LIST_GET_ENTRY(cursor, struct irlap_discovery_log_entry, list);
         free(entry);
       }
     }
-    lap->state = IRLAP_STATION_MODE_NDM;
+    irlap_lock_put(lap, disc->discovery_log_lock);
   }
 
   return 0;
@@ -148,7 +161,9 @@ static int irlap_discovery_request_(struct irlap_discovery* disc, uint8_t num_sl
   lap->state = IRLAP_STATION_MODE_QUERY;
 	disc->num_slots = num_slots;
 	disc->current_slot = 0;
+  irlap_lock_take(lap, disc->discovery_log_lock);
   INIT_LIST_HEAD(disc->discovery_log);
+  irlap_lock_put(lap, disc->discovery_log_lock);
 
   disc->conflict_address = new_addr;
 
