@@ -90,6 +90,8 @@ typedef enum {
 #define IRLAP_FRAME_HANDLED     0
 #define IRLAP_FRAME_NOT_HANDLED 1
 
+#define IRLAP_INDIRECTION_DISCOVERY_BUSY 0
+
 struct irlap_connection {
   irlap_connection_addr_t connection_address;
 };

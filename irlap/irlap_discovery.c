@@ -125,6 +125,20 @@ fail:
   return err;
 }
 
+void irlap_discovery_indirect_busy(struct irlap* lap, void* data) {
+  bool is_null_addr = !!(int)data;
+  struct irlap_discovery* disc = &lap->discovery;
+  if(is_null_addr) {
+    if(disc->discovery_ops.confirm) {
+      disc->discovery_ops.confirm(IRLAP_DISCOVERY_RESULT_MEDIA_BUSY, NULL, lap->priv);
+    }
+  } else {
+    if(disc->new_address_ops.confirm) {
+      disc->new_address_ops.confirm(IRLAP_DISCOVERY_RESULT_MEDIA_BUSY, NULL, lap->priv);
+    }
+  }
+}
+
 static int irlap_discovery_request_(struct irlap_discovery* disc, uint8_t num_slots, uint8_t* discovery_info, uint8_t discovery_info_len, irlap_addr_t new_addr) {
   int err = 0;
 	struct irlap* lap;
@@ -152,22 +166,14 @@ static int irlap_discovery_request_(struct irlap_discovery* disc, uint8_t num_sl
   lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
   irlap_lock_take_reentrant(lap, lap->state_lock);
 	if(lap->state != IRLAP_STATION_MODE_NDM) {
-    IRLAP_DISC_LOGW(disc, "Station is not in NDM state, can't discover");
+    IRLAP_DISC_LOGW(disc, "Station is not in NDM state, can't discover", lap->state);
     err = -EAGAIN;
     goto fail_locked;
 	}
 
 	if(irlap_is_media_busy(lap)) {
     IRLAP_DISC_LOGW(disc, "Media is busy, can't discover");
-    if(new_addr == IRLAP_ADDR_NULL) {
-      if(disc->discovery_ops.confirm) {
-        err = disc->discovery_ops.confirm(IRLAP_DISCOVERY_RESULT_MEDIA_BUSY, NULL, lap->priv);
-      }
-    } else {
-      if(disc->new_address_ops.confirm) {
-        err = disc->new_address_ops.confirm(IRLAP_DISCOVERY_RESULT_MEDIA_BUSY, NULL, lap->priv);
-      }
-    }
+    err = irlap_indirect_call(lap, IRLAP_INDIRECTION_DISCOVERY_BUSY, (void*)(new_addr == IRLAP_ADDR_NULL));
     goto fail_locked;
 	}
 

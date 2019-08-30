@@ -102,3 +102,5 @@ int irlap_discovery_request(struct irlap_discovery* disc, uint8_t num_slots, uin
 int irlap_new_address_request(struct irlap_discovery* disc, uint8_t num_slots, uint8_t* discovery_info, uint8_t discovery_info_len, irlap_addr_t conflict_addr);
 int irlap_discovery_handle_xid_cmd(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool poll);
 int irlap_discovery_handle_xid_resp(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool final);
+
+void irlap_discovery_indirect_busy(struct irlap* lap, void* data);
