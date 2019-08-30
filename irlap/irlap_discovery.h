@@ -78,6 +78,7 @@ struct irlap_discovery {
 #define IRLAP_FRAME_IS_XID_CMD(hdr) ((hdr)->control & IRLAP_CMD_MASK == IRLAP_CMD_XID)
 #define IRLAP_FRAME_IS_XID_RESP(hdr) ((hdr)->control & IRLAP_RESP_MASK == IRLAP_RESP_XID)
 #define IRLAP_FRAME_IS_XID(hdr) (IRLAP_FRAME_IS_XID_CMD((hdr)) || IRLAP_FRAME_IS_XID_RESP((hdr)))
+#define IRLAP_FRAME_IS_SNIFF(frm) ((frm)->dst_address == IRLAP_ADDR_BCAST)
 
 union irlap_xid_frame {
   struct {

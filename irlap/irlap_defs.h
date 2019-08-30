@@ -76,6 +76,8 @@ typedef enum {
   IRLAP_STATION_MODE_NRM,
   IRLAP_STATION_MODE_QUERY,
   IRLAP_STATION_MODE_REPLY,
+  IRLAP_STATION_MODE_SCONN,
+  IRLAP_STATION_MODE_SSETUP,
 } irlap_station_mode_t;
 
 #define IRLAP_STATE_IS_CONTENTION(state) ( \
@@ -85,6 +87,7 @@ typedef enum {
 )
 
 typedef enum {
+  IRLAP_STATION_ROLE_NONE = 0,
   IRLAP_STATION_ROLE_PRIMARY,
   IRLAP_STATION_ROLE_SECONDARY,
 } irlap_station_role_t;

@@ -398,33 +398,71 @@ int irlap_discovery_handle_xid_cmd(struct irlap* lap, struct irlap_connection* c
   return irlap_discovery_handle_xid_cmd_discovery(disc, &frame, discovery_info_len);
 }
 
-static int irlap_discovery_handle_xid_resp_discovery(struct irlap_discovery* disc, union irlap_xid_frame* frame, uint8_t discovery_info_len) {
-  int err = IRLAP_FRAME_HANDLED;
+static int irlap_discovery_handle_xid_resp_discovery_ndm(struct irlap_discovery* disc, union irlap_xid_frame* frame, uint8_t discovery_info_len) {
 	struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
-  irlap_lock_take_reentrant(lap, lap->state_lock);
+  struct irlap_discovery_log log;
 
-  if(lap->state != IRLAP_STATION_MODE_QUERY) {
-    IRLAP_DISC_LOGD(disc, "Station not in query mode, ignoring xid discovery response");
-    err = -EAGAIN;
-    goto fail_locked;
+  if(!IRLAP_FRAME_IS_SNIFF(frame)) {
+    IRLAP_DISC_LOGW(disc, "Refusing to handle discovery response in ndm mode");
+    return IRLAP_FRAME_NOT_HANDLED;
   }
 
-  struct irlap_discovery_log_entry* entry = calloc(1, sizeof(struct irlap_discovery_log_entry));
+  log.solicited = false;
+  log.sniff = true;
+  log.device_address = frame->src_address;
+  log.irlap_version = frame->version;
+  log.discovery_info.len = discovery_info_len;
+  memcpy(log.discovery_info.data, frame->discovery_info, discovery_info_len);
+
+  if(disc->discovery_ops.indication) {
+    disc->discovery_ops.indication(&log, lap->priv);
+  }
+
+  return IRLAP_FRAME_HANDLED;
+}
+
+static int irlap_discovery_handle_xid_resp_discovery_query(struct irlap_discovery* disc, union irlap_xid_frame* frame, uint8_t discovery_info_len) {
+  struct irlap_discovery_log_entry* entry;
+
+  if(IRLAP_FRAME_IS_SNIFF(frame)) {
+    IRLAP_DISC_LOGW(disc, "Refusing to handle sniff xid response in query mode");
+    return IRLAP_FRAME_NOT_HANDLED;
+  }
+
+  entry = calloc(1, sizeof(struct irlap_discovery_log_entry));
   if(!entry) {
     IRLAP_DISC_LOGW(disc, "Failed to allocate memory for query log entry");
-    err = -ENOMEM;
-    goto fail_locked;
+    return -ENOMEM;
   }
 
   entry->discovery_log.solicited = true;
-  entry->discovery_log.sniff = (frame->dst_address == IRLAP_ADDR_BCAST);
+  entry->discovery_log.sniff = IRLAP_FRAME_IS_SNIFF(frame);
   entry->discovery_log.device_address = frame->src_address;
   entry->discovery_log.irlap_version = frame->version;
   entry->discovery_log.discovery_info.len = discovery_info_len;
   memcpy(entry->discovery_log.discovery_info.data, frame->discovery_info, discovery_info_len);
 
   LIST_APPEND(&entry->list, &disc->discovery_log);
-fail_locked:
+
+  return IRLAP_FRAME_HANDLED;
+}
+
+static int irlap_discovery_handle_xid_resp_discovery(struct irlap_discovery* disc, union irlap_xid_frame* frame, uint8_t discovery_info_len) {
+  int err = IRLAP_FRAME_HANDLED;
+	struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
+
+  irlap_lock_take_reentrant(lap, lap->state_lock);
+  switch(lap->state) {
+    case IRLAP_STATION_MODE_NDM:
+      break;
+    case IRLAP_STATION_MODE_QUERY:
+      err = irlap_discovery_handle_xid_resp_discovery_query(disc, frame, discovery_info_len);
+      break;
+    default:
+      IRLAP_DISC_LOGD(disc, "Station neither in ndm nor query mode, ignoring xid discovery response");
+      err = -EAGAIN;
+  }
+
   irlap_lock_put_reentrant(lap, lap->state_lock);
   return err;
 }
