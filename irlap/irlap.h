@@ -21,6 +21,7 @@ typedef union irlap_frame_hdr irlap_frame_hdr_t;
 struct irlap;
 
 #include "irlap_discovery.h"
+#include "irlap_unitdata.h"
 #include "irlap_frame_wrapper.h"
 #include "../irphy/irphy.h"
 #include "../util/list.h"
@@ -56,6 +57,8 @@ struct irlap {
   irlap_wrapper_state_t wrapper_state;
 
   struct eventqueue events;
+
+  struct irlap_unitdata unitdata;
 };
 
 typedef int (*irlap_frame_handler_f)(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool pf);

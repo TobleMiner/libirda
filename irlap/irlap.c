@@ -62,18 +62,25 @@ int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void
     goto fail_discovery;
   }
 
-  err = irlap_media_busy(lap);
+  err = irlap_unitdata_init(&lap->unitdata);
   if(err) {
     goto fail_eventqueue;
+  }
+
+  err = irlap_media_busy(lap);
+  if(err) {
+    goto fail_unitdata;
   }
 
   err = irphy_rx_enable(lap->phy, irlap_handle_irda_event, lap);
   if(err) {
-    goto fail_eventqueue;
+    goto fail_unitdata;
   }
 
   return 0;
 
+fail_unitdata:
+  irlap_unitdata_free(&lap->unitdata);
 fail_eventqueue:
   eventqueue_free(&lap->events);
 fail_discovery:
