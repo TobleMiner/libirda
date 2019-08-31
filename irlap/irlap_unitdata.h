@@ -22,3 +22,4 @@ struct irlap_unitdata {
 int irlap_unitdata_init(struct irlap_unitdata* udata);
 void irlap_unitdata_free(struct irlap_unitdata* udata);
 int irlap_unitdata_request(struct irlap_unitdata* udata, uint8_t* data, size_t len);
+int irlap_unitdata_handle_ui_cmd(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool poll);

@@ -101,3 +101,18 @@ fail_state_locked:
 fail:
   return err;
 }
+
+int irlap_unitdata_handle_ui_cmd(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool poll) {
+  struct irlap_unitdata* udata = &lap->unitdata;
+  IRLAP_UDATA_LOGD(udata, "Got unitdata cmd");
+  if(conn) {
+    IRLAP_UDATA_LOGW(udata, "Unitdata for connections not implemented yet");
+    return -IRLAP_ERR_NOT_IMPLEMENTED;
+  }
+
+  if(udata->ops.indication) {
+    udata->ops.indication(data, len, lap->priv);
+  }
+
+  return IRLAP_FRAME_HANDLED;
+}

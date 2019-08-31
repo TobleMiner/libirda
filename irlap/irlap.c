@@ -20,6 +20,7 @@
 static struct irlap_frame_handler frame_handlers[] = {
   { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_CMD_XID, irlap_discovery_handle_xid_cmd, NULL },
   { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_RESP_XID, NULL, irlap_discovery_handle_xid_resp },
+  { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_CMD_UI, irlap_unitdata_handle_ui_cmd, NULL },
   { 0, NULL, NULL }
 };
 
