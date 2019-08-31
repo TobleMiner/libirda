@@ -454,6 +454,7 @@ static int irlap_discovery_handle_xid_resp_discovery(struct irlap_discovery* dis
   irlap_lock_take_reentrant(lap, lap->state_lock);
   switch(lap->state) {
     case IRLAP_STATION_MODE_NDM:
+      err = irlap_discovery_handle_xid_resp_discovery_ndm(disc, frame, discovery_info_len);
       break;
     case IRLAP_STATION_MODE_QUERY:
       err = irlap_discovery_handle_xid_resp_discovery_query(disc, frame, discovery_info_len);
