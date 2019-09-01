@@ -3,6 +3,7 @@
 
 #include "irlap_connect.h"
 #include "irlap.h"
+#include "irlap_connection.h"
 
 #define IRLAP_CONNECT_TO_IRLAP(conn) (container_of((conn), struct irlap, connect))
 
@@ -56,8 +57,6 @@ fail_state_locked:
   return err;
 }
 
-//static int irlap_connect_send_snrm_cmd(struct irlap_connect* conn, )
-
 int irlap_connect_request(struct irlap_connect* conn, irlap_addr_t target_addr, struct irlap_connect_req_qos* qos, bool sniff) {
   struct irlap* lap = IRLAP_CONNECT_TO_IRLAP(conn);
 
@@ -76,12 +75,15 @@ int irlap_connect_handle_sniff_xid_req_sconn(struct irlap* lap, irlap_addr_t add
     goto fail_connect_locked;
   }
 
+  irlap_lock_take_reentrant(lap, &lap->connection_lock);
   err = irlap_connection_alloc(lap, &connection);
   if(err) {
     IRLAP_CONN_LOGE(conn, "Failed to allocate connection");
     goto fail_connect_locked;    
   }
 
+fail_connection_alloc:
+  irlap_connection_free(lap, connection);
 fail_connect_locked:
   irlap_lock_take_reentrant(lap, &conn->connect_lock);
   return IRLAP_FRAME_HANDLED;

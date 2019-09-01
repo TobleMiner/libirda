@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "irlap_defs.h"
+#include "../util/list.h"
 
 typedef uint32_t irlap_baudrate_t;
 typedef uint16_t irlap_turn_around_time_t;
@@ -23,24 +24,9 @@ struct irlap_connect_resp_qos {
 };
 
 struct irlap_connect {
-  int p_timer;
   struct irlap_connect_req_qos current_req_qos;
   irlap_addr_t current_target_addr;
   void* connect_lock;
-};
-
-
-#define IRLAP_NEGOTIATION_PARAMETERS_MAX_LEN 22
-
-union irlap_snrm_frame {
-  struct {
-    irlap_addr_t            src_address;
-    irlap_addr_t            dst_address;
-    irlap_connection_addr_t connection_addr;
-    uint8_t                 negotiation_params[IRLAP_NEGOTIATION_PARAMETERS_MAX_LEN];
-  } __attribute__((packed));
-  uint8_t data[9];
-  uint8_t data_params[9 + IRLAP_NEGOTIATION_PARAMETERS_MAX_LEN];
 };
 
 int irlap_connect_init(struct irlap_connect* conn);
