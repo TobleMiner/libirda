@@ -447,6 +447,17 @@ static int irlap_discovery_handle_xid_resp_discovery_query(struct irlap_discover
   return IRLAP_FRAME_HANDLED;
 }
 
+static int irlap_discovery_handle_xid_resp_discovery_sconn(struct irlap_discovery* disc, union irlap_xid_frame* frame, uint8_t discovery_info_len) {
+  struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
+
+  if(!IRLAP_FRAME_IS_SNIFF(frame)) {
+    IRLAP_DISC_LOGW(disc, "Refusing to handle discovery response in sconn mode");
+    return IRLAP_FRAME_NOT_HANDLED;
+  }
+
+  return irlap_connect_handle_sniff_xid_req_sconn(lap, frame->src_address);
+}
+
 static int irlap_discovery_handle_xid_resp_discovery(struct irlap_discovery* disc, union irlap_xid_frame* frame, uint8_t discovery_info_len) {
   int err = IRLAP_FRAME_HANDLED;
   struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
@@ -459,8 +470,11 @@ static int irlap_discovery_handle_xid_resp_discovery(struct irlap_discovery* dis
     case IRLAP_STATION_MODE_QUERY:
       err = irlap_discovery_handle_xid_resp_discovery_query(disc, frame, discovery_info_len);
       break;
+    case IRLAP_STATION_MODE_SCONN:
+      err = irlap_discovery_handle_xid_resp_discovery_sconn(disc, frame, discovery_info_len);
+      break;
     default:
-      IRLAP_DISC_LOGD(disc, "Station neither in ndm nor query mode, ignoring xid discovery response");
+      IRLAP_DISC_LOGD(disc, "Station neither in ndm nor query nor sconn mode, ignoring xid discovery response");
       err = -EAGAIN;
   }
 

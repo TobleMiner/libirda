@@ -22,6 +22,7 @@ struct irlap;
 
 #include "irlap_discovery.h"
 #include "irlap_unitdata.h"
+#include "irlap_connect.h"
 #include "irlap_frame_wrapper.h"
 #include "../irphy/irphy.h"
 #include "../util/list.h"
@@ -48,6 +49,7 @@ struct irlap {
   unsigned int additional_bof;
 
   irlap_connection_list_t connections;
+  void* connection_list_lock;
 
   struct irlap_discovery discovery;
 
@@ -59,6 +61,13 @@ struct irlap {
   struct eventqueue events;
 
   struct irlap_unitdata unitdata;
+
+  struct irlap_connect connect;
+};
+
+struct irlap_connection {
+  irlap_connection_list_t list;
+  irlap_connection_addr_t connection_addr;
 };
 
 typedef int (*irlap_frame_handler_f)(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool pf);
@@ -88,5 +97,8 @@ irlap_addr_t irlap_get_address(struct irlap* lap);
 int irlap_set_timer(struct irlap* lap, unsigned int timeout_ms, irhal_timer_cb cb, void* priv);
 int irlap_clear_timer(struct irlap* lap, int timer);
 int irlap_send_frame(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* payload, size_t payload_len);
+int irlap_connection_alloc(struct irlap* lap, struct irlap_connection** retval);
+void irlap_connection_free(struct irlap* lap, struct irlap_connection* conn);
+struct irlap_connection* irlap_get_connection(struct irlap* lap, irlap_connection_addr_t connection_addr);
 
 #define irlap_random_u8(lap, val, min, max) (irhal_random_u8((lap)->phy->hal, (val), (min), (max)))
