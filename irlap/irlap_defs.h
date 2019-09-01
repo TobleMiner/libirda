@@ -109,6 +109,10 @@ typedef enum {
   IRLAP_CONNECTION_STATE_SETUP = 0,
 } irlap_connection_state_t;
 
+#define IRLAP_CONNECTION_IS_NEGOTIATED(conn) ( \
+  ((conn)->state != IRLAP_CONNECTION_STATE_SETUP) \
+)
+
 #define IRLAP_FRAME_HANDLED     0
 #define IRLAP_FRAME_NOT_HANDLED 1
 
