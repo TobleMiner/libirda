@@ -1,6 +1,7 @@
 #pragma once
 
 struct irlap;
+struct irlap_connection;
 
 typedef uint8_t  irlap_version_t;
 typedef uint32_t irlap_addr_t;
@@ -12,13 +13,15 @@ typedef uint8_t irlap_control_t;
 
 #define IRLAP_MEDIA_BUSY_THRESHOLD 10
 
-#define IRLAP_ERR_BASE                0x400
-#define IRLAP_ERR_ADDRESS             (IRLAP_ERR_BASE + 1)
-#define IRLAP_ERR_UNITDATA_TOO_LONG   (IRLAP_ERR_BASE + 2)
-#define IRLAP_ERR_STATION_STATE       (IRLAP_ERR_BASE + 3)
-#define IRLAP_ERR_UNITDATA_TIME_LIMIT (IRLAP_ERR_BASE + 4)
-#define IRLAP_ERR_MEDIA_BUSY          (IRLAP_ERR_BASE + 5)
-#define IRLAP_ERR_NOT_IMPLEMENTED     (IRLAP_ERR_BASE + 6)
+#define IRLAP_ERR_BASE                             0x400
+#define IRLAP_ERR_ADDRESS                         (IRLAP_ERR_BASE + 1)
+#define IRLAP_ERR_UNITDATA_TOO_LONG               (IRLAP_ERR_BASE + 2)
+#define IRLAP_ERR_STATION_STATE                   (IRLAP_ERR_BASE + 3)
+#define IRLAP_ERR_UNITDATA_TIME_LIMIT             (IRLAP_ERR_BASE + 4)
+#define IRLAP_ERR_MEDIA_BUSY                      (IRLAP_ERR_BASE + 5)
+#define IRLAP_ERR_NOT_IMPLEMENTED                 (IRLAP_ERR_BASE + 6)
+#define IRLAP_ERR_NO_CONNECTION_ADDRESS_AVAILABLE (IRLAP_ERR_BASE + 7)
+#define IRLAP_ERR_NO_COMMON_PARAMETERS_FOUND      (IRLAP_ERR_BASE + 8)
 
 #define IRLAP_SLOT_TIMEOUT 50
 #define IRLAP_P_TIMEOUT_MAX 500
@@ -36,12 +39,17 @@ typedef uint8_t irlap_control_t;
 #define IRLAP_CONNECTION_ADDRESS_BCAST   0b11111110
 #define IRLAP_CONNECTION_ADDRESS_NULL    0b00000000
 
+#define IRLAP_CONNECTION_ADDRESS_MIN    0b00000001
+#define IRLAP_CONNECTION_ADDRESS_MAX    IRLAP_CONNECTION_ADDRESS_MASK
+
 #define IRLAP_FRAME_IS_BCAST(hdr) (((hdr)->connection_address & IRLAP_CONNECTION_ADDRESS_MASK) == IRLAP_CONNECTION_ADDRESS_BCAST)
 #define IRLAP_FRAME_IS_COMMAND(hdr) (((hdr)->connection_address & IRLAP_CONNECTION_ADDRESS_CMD_BIT) == IRLAP_CONNECTION_ADDRESS_CMD_BIT)
 #define IRLAP_FRAME_IS_RESPONSE(hdr) (((hdr)->connection_address & IRLAP_CONNECTION_ADDRESS_CMD_BIT) == 0)
 
 #define IRLAP_FRAME_MAKE_ADDRESS_COMMAND(addr) (((addr) & IRLAP_CONNECTION_ADDRESS_MASK) | IRLAP_CONNECTION_ADDRESS_CMD_BIT)
 #define IRLAP_FRAME_MAKE_ADDRESS_RESPONSE(addr) ((addr) & IRLAP_CONNECTION_ADDRESS_MASK)
+
+#define IRLAP_CONNECTION_ADDRESS_MASK_CMD_BIT(addr) ((addr) & IRLAP_CONNECTION_ADDRESS_MASK)
 
 #define IRLAP_FRAME_FORMAT_MASK        0b00000011
 #define IRLAP_FRAME_FORMAT_UNNUMBERED  0b00000011
@@ -97,12 +105,11 @@ typedef enum {
   IRLAP_STATION_ROLE_SECONDARY,
 } irlap_station_role_t;
 
+typedef enum {
+  IRLAP_CONNECTION_STATE_SETUP = 0,
+} irlap_connection_state_t;
+
 #define IRLAP_FRAME_HANDLED     0
 #define IRLAP_FRAME_NOT_HANDLED 1
 
 #define IRLAP_INDIRECTION_DISCOVERY_BUSY 0
-
-struct irlap_connection {
-  irlap_connection_addr_t connection_address;
-};
-
