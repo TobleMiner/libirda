@@ -416,13 +416,27 @@ int irlap_negotiation_translate_params_to_values(irlap_negotiation_values_t* val
   return fit_line_capacity(values);
 }
 
+static irlap_negotiation_param_t fill_bits(irlap_negotiation_param_t val) {
+  irlap_negotiation_param_t mask = 1 << IRLAP_NEGOTIATION_PARAM_MSB;
+  irlap_negotiation_param_t fill = 0;
+  while(mask > 0) {
+    if(val & mask) {
+      fill = mask;
+    }
+    val |= fill;
+    fill <<= 1;
+    mask <<= 1;
+  }
+  return val;
+}
+
 void irlap_negotiation_load_default_params(irlap_negotiation_params_t* params) {
   params->baudrate             = IRLAP_NEGOTIATION_BAUDRATE_9600;
   params->max_turn_around_time = IRLAP_NEGOTIATION_MAX_TURN_AROUND_TIME_500_MS;
   params->data_size            = IRLAP_NEGOTIATION_DATA_SIZE_64;
   params->window_size          = IRLAP_NEGOTIATION_WINDOW_SIZE_1;
   params->additional_bofs      = IRLAP_NEGOTIATION_ADDITIONAL_BOFS_0;
-  params->min_turn_around_time = 0xFF;
+  params->min_turn_around_time = fill_bits(IRLAP_NEGOTIATION_MIN_TURN_AROUND_TIME_0_US);
 }
 
 void irlap_negotiation_load_default_values(irlap_negotiation_values_t* values) {
@@ -430,4 +444,139 @@ void irlap_negotiation_load_default_values(irlap_negotiation_values_t* values) {
   irlap_negotiation_load_default_params(&params);
   normalize_params(&params);
   irlap_negotiation_translate_params_to_values(values, &params);
+}
+
+static irlap_negotiation_param_t max_turn_around_time_ms_value_to_bits(irlap_negotiation_values_t* values) {
+  switch(values->max_turn_around_time_ms) {
+    case 500:
+      return IRLAP_NEGOTIATION_MAX_TURN_AROUND_TIME_500_MS;
+    case 250:
+      return IRLAP_NEGOTIATION_MAX_TURN_AROUND_TIME_250_MS;
+    case 100:
+      return IRLAP_NEGOTIATION_MAX_TURN_AROUND_TIME_100_MS;
+    case 50:
+      return IRLAP_NEGOTIATION_MAX_TURN_AROUND_TIME_50_MS;
+  }
+  return IRLAP_NEGOTIATION_PARAM_UNSET;
+}
+
+static irlap_negotiation_param_t data_size_value_to_bits(irlap_negotiation_values_t* values) {
+  uint16_t data_size = values->data_size;
+  irlap_negotiation_param_t param = 1;
+  while(param & IRLAP_NEGOTIATION_DATA_SIZE_MASK) {
+    if(data_size == 64) {
+      break;
+    }
+    data_size /= 2;
+    param *= 2;
+  }
+  return param & IRLAP_NEGOTIATION_DATA_SIZE_MASK;
+}
+
+static irlap_negotiation_param_t window_size_value_to_bits(irlap_negotiation_values_t* values) {
+  uint16_t window_size = values->data_size;
+  irlap_negotiation_param_t param = 1;
+  while(param & IRLAP_NEGOTIATION_WINDOW_SIZE_MASK) {
+    if(window_size == 1) {
+      break;
+    }
+    window_size--;
+    param *= 2;
+  }
+  return param & IRLAP_NEGOTIATION_WINDOW_SIZE_MASK;
+}
+
+static irlap_negotiation_param_t additional_bofs_value_to_bits(irlap_negotiation_values_t* values) {
+  switch(values->additional_bofs) {
+    case 48:
+      return IRLAP_NEGOTIATION_ADDITIONAL_BOFS_48;
+    case 24:
+      return IRLAP_NEGOTIATION_ADDITIONAL_BOFS_24;
+    case 12:
+      return IRLAP_NEGOTIATION_ADDITIONAL_BOFS_12;
+    case 5:
+      return IRLAP_NEGOTIATION_ADDITIONAL_BOFS_5;
+    case 3:
+      return IRLAP_NEGOTIATION_ADDITIONAL_BOFS_3;
+    case 2:
+      return IRLAP_NEGOTIATION_ADDITIONAL_BOFS_2;
+    case 1:
+      return IRLAP_NEGOTIATION_ADDITIONAL_BOFS_1;
+    case 0:
+      return IRLAP_NEGOTIATION_ADDITIONAL_BOFS_0;
+  }
+  return IRLAP_NEGOTIATION_PARAM_UNSET;
+}
+
+static irlap_negotiation_param_t min_turn_around_time_ms_value_to_bits(irlap_negotiation_values_t* values) {
+  switch(values->min_turn_around_time_us) {
+    case 10000:
+      return IRLAP_NEGOTIATION_MIN_TURN_AROUND_TIME_10000_US;
+    case 5000:
+      return IRLAP_NEGOTIATION_MIN_TURN_AROUND_TIME_5000_US;
+    case 1000:
+      return IRLAP_NEGOTIATION_MIN_TURN_AROUND_TIME_1000_US;
+    case 500:
+      return IRLAP_NEGOTIATION_MIN_TURN_AROUND_TIME_500_US;
+    case 100:
+      return IRLAP_NEGOTIATION_MIN_TURN_AROUND_TIME_100_US;
+    case 50:
+      return IRLAP_NEGOTIATION_MIN_TURN_AROUND_TIME_50_US;
+    case 10:
+      return IRLAP_NEGOTIATION_MIN_TURN_AROUND_TIME_10_US;
+    case 0:
+      return IRLAP_NEGOTIATION_MIN_TURN_AROUND_TIME_0_US;
+  }
+  return IRLAP_NEGOTIATION_PARAM_UNSET;
+}
+
+static irlap_negotiation_param_t disconnect_threshold_time_s_value_to_bits(irlap_negotiation_values_t* values) {
+  switch(values->disconnect_threshold_time_s) {
+    case 3:
+      return IRLAP_NEGOTIATION_DISCONNECT_THRESHOLD_TIME_3_S;
+    case 8:
+      return IRLAP_NEGOTIATION_DISCONNECT_THRESHOLD_TIME_8_S;
+    case 12:
+      return IRLAP_NEGOTIATION_DISCONNECT_THRESHOLD_TIME_12_S;
+    case 16:
+      return IRLAP_NEGOTIATION_DISCONNECT_THRESHOLD_TIME_16_S;
+    case 20:
+      return IRLAP_NEGOTIATION_DISCONNECT_THRESHOLD_TIME_20_S;
+    case 25:
+      return IRLAP_NEGOTIATION_DISCONNECT_THRESHOLD_TIME_25_S;
+    case 30:
+      return IRLAP_NEGOTIATION_DISCONNECT_THRESHOLD_TIME_30_S;
+    case 40:
+      return IRLAP_NEGOTIATION_DISCONNECT_THRESHOLD_TIME_40_S;
+  }
+  return IRLAP_NEGOTIATION_PARAM_UNSET;
+}
+
+int irlap_negotiation_translate_values_to_params(irlap_negotiation_params_t* params, irlap_negotiation_values_t* values, uint16_t baudrates) {
+  params->baudrate = baudrates;
+  params->max_turn_around_time = fill_bits(max_turn_around_time_ms_value_to_bits(values));
+  if(params->max_turn_around_time == IRLAP_NEGOTIATION_PARAM_UNSET) {
+    return -EINVAL;
+  }
+  params->data_size = fill_bits(data_size_value_to_bits(values));
+  if(params->data_size == IRLAP_NEGOTIATION_PARAM_UNSET) {
+    return -EINVAL;
+  }
+  params->window_size = fill_bits(window_size_value_to_bits(values));
+  if(params->window_size == IRLAP_NEGOTIATION_PARAM_UNSET) {
+    return -EINVAL;
+  }
+  params->additional_bofs = fill_bits(additional_bofs_value_to_bits(values));
+  if(params->additional_bofs == IRLAP_NEGOTIATION_PARAM_UNSET) {
+    return -EINVAL;
+  }
+  params->min_turn_around_time = fill_bits(min_turn_around_time_ms_value_to_bits(values));
+  if(params->min_turn_around_time == IRLAP_NEGOTIATION_PARAM_UNSET) {
+    return -EINVAL;
+  }
+  params->disconnect_threshold = fill_bits(disconnect_threshold_time_s_value_to_bits(values));
+  if(params->disconnect_threshold == IRLAP_NEGOTIATION_PARAM_UNSET) {
+    return -EINVAL;
+  }
+  return 0;
 }

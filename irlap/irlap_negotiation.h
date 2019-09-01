@@ -32,6 +32,7 @@ typedef uint16_t irlap_negotiation_param_t;
 #define IRLAP_NEGOTIATION_MAX_TURN_AROUND_TIME_100_MS 0b00000100
 #define IRLAP_NEGOTIATION_MAX_TURN_AROUND_TIME_50_MS  0b00001000
 
+#define IRLAP_NEGOTIATION_DATA_SIZE_MASK 0b00111111
 #define IRLAP_NEGOTIATION_DATA_SIZE_64   0b00000001
 #define IRLAP_NEGOTIATION_DATA_SIZE_128  0b00000010
 #define IRLAP_NEGOTIATION_DATA_SIZE_256  0b00000100
@@ -39,13 +40,14 @@ typedef uint16_t irlap_negotiation_param_t;
 #define IRLAP_NEGOTIATION_DATA_SIZE_1024 0b00010000
 #define IRLAP_NEGOTIATION_DATA_SIZE_2048 0b00100000
 
-#define IRLAP_NEGOTIATION_WINDOW_SIZE_1 0b00000001
-#define IRLAP_NEGOTIATION_WINDOW_SIZE_2 0b00000010
-#define IRLAP_NEGOTIATION_WINDOW_SIZE_3 0b00000100
-#define IRLAP_NEGOTIATION_WINDOW_SIZE_4 0b00001000
-#define IRLAP_NEGOTIATION_WINDOW_SIZE_5 0b00010000
-#define IRLAP_NEGOTIATION_WINDOW_SIZE_6 0b00100000
-#define IRLAP_NEGOTIATION_WINDOW_SIZE_7 0b01000000
+#define IRLAP_NEGOTIATION_WINDOW_SIZE_MASK 0b01111111
+#define IRLAP_NEGOTIATION_WINDOW_SIZE_1    0b00000001
+#define IRLAP_NEGOTIATION_WINDOW_SIZE_2    0b00000010
+#define IRLAP_NEGOTIATION_WINDOW_SIZE_3    0b00000100
+#define IRLAP_NEGOTIATION_WINDOW_SIZE_4    0b00001000
+#define IRLAP_NEGOTIATION_WINDOW_SIZE_5    0b00010000
+#define IRLAP_NEGOTIATION_WINDOW_SIZE_6    0b00100000
+#define IRLAP_NEGOTIATION_WINDOW_SIZE_7    0b01000000
 
 #define IRLAP_NEGOTIATION_ADDITIONAL_BOFS_48 0b00000001
 #define IRLAP_NEGOTIATION_ADDITIONAL_BOFS_24 0b00000010
@@ -128,4 +130,4 @@ int irlap_negotiation_merge_params(irlap_negotiation_params_t* a, irlap_negotiat
 int irlap_negotiation_translate_params_to_values(irlap_negotiation_values_t* values, irlap_negotiation_params_t* params);
 void irlap_negotiation_load_default_params(irlap_negotiation_params_t* params);
 void irlap_negotiation_load_default_values(irlap_negotiation_values_t* values);
-
+int irlap_negotiation_translate_values_to_params(irlap_negotiation_params_t* params, irlap_negotiation_values_t* values, uint16_t baudrates);
