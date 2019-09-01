@@ -6,6 +6,16 @@
 #include "../util/time.h"
 #include "../irhal/irhal.h"
 
+#define IRPHY_CAPABILITY_BAUDRATE_2400    0b0000000000000001
+#define IRPHY_CAPABILITY_BAUDRATE_9600    0b0000000000000010
+#define IRPHY_CAPABILITY_BAUDRATE_19200   0b0000000000000100
+#define IRPHY_CAPABILITY_BAUDRATE_38400   0b0000000000001000
+#define IRPHY_CAPABILITY_BAUDRATE_57600   0b0000000000010000
+#define IRPHY_CAPABILITY_BAUDRATE_115200  0b0000000000100000
+#define IRPHY_CAPABILITY_BAUDRATE_576000  0b0000000001000000
+#define IRPHY_CAPABILITY_BAUDRATE_1152000 0b0000000010000000
+#define IRPHY_CAPABILITY_BAUDRATE_4000000 0b0000000100000000
+
 typedef void (*irphy_cd_cb)(bool carrier_detected, void* priv);
 
 typedef enum {
@@ -15,6 +25,8 @@ typedef enum {
 } irphy_event_t;
 
 struct irphy;
+
+typedef uint16_t irphy_capability_baudrate_t;
 
 typedef void (*irphy_rx_cb)(struct irphy* phy, irphy_event_t event, void* priv);
 
@@ -47,9 +59,19 @@ struct irphy {
     irphy_cd_cb cb;
     int timer;
   } cd;
+  irphy_capability_baudrate_t supported_baudrates;
+  uint32_t rx_turn_around_latency_us;
 };
 
-int irphy_init(struct irphy* phy, struct irhal* hal, const struct irphy_hal_ops* hal_ops);
+int irphy_init(struct irphy* phy, struct irhal* hal, const struct irphy_hal_ops* hal_ops, irphy_capability_baudrate_t supported_baudrates, uint32_t rx_turn_around_latency_us);
+
+static inline irphy_capability_baudrate_t irphy_get_supported_baudrates(struct irphy* phy) {
+  return phy->supported_baudrates;
+}
+
+static inline uint32_t irphy_get_rx_turn_around_latency_us(struct irphy* phy) {
+  return phy->rx_turn_around_latency_us;
+}
 
 static inline int irphy_set_baudrate(struct irphy* phy, uint32_t rate) {
   return phy->hal_ops.set_baudrate(rate, phy->hal_priv);
