@@ -38,6 +38,8 @@ int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void
   lap->ops = *ops;
   lap->priv = priv;
 
+  INIT_LIST_HEAD(&lap->connections);
+
   err = irlap_regenerate_address(lap);
   if(err) {
     goto fail;
@@ -53,14 +55,14 @@ int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void
     goto fail_phy_lock;
   }
 
-  err = irlap_lock_alloc_reentrant(lap, &lap->connection_list_lock);
+  err = irlap_lock_alloc_reentrant(lap, &lap->connection_lock);
   if(err) {
     goto fail_state_lock;
   }
 
   err = irlap_discovery_init(&lap->discovery);
   if(err) {
-    goto fail_connection_list_lock;
+    goto fail_connection_lock;
   }
 
   err = eventqueue_init(&lap->events, lap->phy->hal, 32);
@@ -98,8 +100,8 @@ fail_eventqueue:
   eventqueue_free(&lap->events);
 fail_discovery:
   irlap_discovery_free(&lap->discovery);
-fail_connection_list_lock:
-  irlap_lock_free_reentrant(lap, &lap->connection_list_lock);
+fail_connection_lock:
+  irlap_lock_free_reentrant(lap, &lap->connection_lock);
 fail_state_lock:
   irlap_lock_free_reentrant(lap, &lap->state_lock);
 fail_phy_lock:
@@ -232,6 +234,10 @@ irlap_addr_t irlap_get_address(struct irlap* lap) {
   return lap->address;
 }
 
+irphy_capability_baudrate_t irlap_get_supported_baudrates(struct irlap* lap) {
+  return irphy_get_supported_baudrates(lap->phy);
+}
+
 int irlap_set_timer(struct irlap* lap, unsigned int timeout_ms, irhal_timer_cb cb, void* priv) {
   time_ns_t timeout = { .sec = 0 };
   timeout.nsec = (uint32_t)timeout_ms * 1000000UL;
@@ -333,87 +339,4 @@ static void irlap_handle_irda_event(struct irphy* phy, irphy_event_t event, void
     case IRPHY_EVENT_RX_OVERFLOW:
       irlap_media_busy(lap);
   }
-}
-
-struct irlap_connection* irlap_get_connection(struct irlap* lap, irlap_connection_addr_t connection_addr) {
-  struct irlap_connection* conn = NULL;
-  irlap_discovery_log_list_t* cursor;
-
-  irlap_lock_take_reentrant(lap, lap->connection_list_lock);
-  LIST_FOR_EACH(cursor, &lap->connections) {
-    struct irlap_connection* entry = LIST_GET_ENTRY(cursor, struct irlap_connection, list);
-    if(IRLAP_CONNECTION_ADDRESS_MASK_CMD_BIT(entry->connection_addr) == IRLAP_CONNECTION_ADDRESS_MASK_CMD_BIT(connection_addr)) {
-      conn = entry;
-      break;
-    }
-  }
-
-  irlap_lock_put_reentrant(lap, lap->connection_list_lock);
-  return conn;
-}
-
-int irlap_connection_alloc(struct irlap* lap, struct irlap_connection** retval) {
-  int err = 0;
-  irlap_connection_addr_t i;
-  irlap_connection_addr_t connection_addr = 0;
-  uint8_t num_free_addrs = 0;
-  uint8_t connection_addr_idx;
-  struct irlap_connection* conn = calloc(1, sizeof(struct irlap_connection));
-  if(!conn) {
-    err = -ENOMEM;
-    IRLAP_LOGE(lap, "Failed to allocate lap connection");
-    goto fail;
-  }
-  irlap_lock_take_reentrant(lap, lap->connection_list_lock);
-
-  // Calculate number of free addresses
-  for(i = IRLAP_CONNECTION_ADDRESS_MIN; i < IRLAP_CONNECTION_ADDRESS_MAX; i++) {
-    if(!irlap_get_connection(lap, i)) {
-      num_free_addrs++;
-    }
-  }
-
-  IRLAP_LOGD(lap, "Have %u free connection numbers", num_free_addrs);
-  if(num_free_addrs == 0) {
-    IRLAP_LOGW(lap, "Failed to set up lap connection, no free connection addresses available");
-    err = -IRLAP_ERR_NO_CONNECTION_ADDRESS_AVAILABLE;
-    goto fail_connections_locked;
-  }
-
-  err = irlap_random_u8(lap, &connection_addr_idx, 0, num_free_addrs);
-  if(err) {
-    IRLAP_LOGE(lap, "Failed to get random connection number index");
-    goto fail_connections_locked;
-  }
-
-  // Get n-th free address
-  for(i = IRLAP_CONNECTION_ADDRESS_MIN; i < IRLAP_CONNECTION_ADDRESS_MAX; i++) {
-    if(!irlap_get_connection(lap, i)) {
-      if(connection_addr_idx-- == 0) {
-        connection_addr = i;
-      }
-    }
-  }
-
-  IRLAP_LOGD(lap, "Got connection address %u", connection_addr);
-
-  conn->connection_addr = connection_addr;
-  LIST_APPEND(&conn->list, &lap->connections);
-
-  irlap_lock_put_reentrant(lap, lap->connection_list_lock);
-  *retval = conn;
-  return 0;
-
-fail_connections_locked:
-  irlap_lock_put_reentrant(lap, lap->connection_list_lock);
-  free(conn);
-fail:
-  return err;
-}
-
-void irlap_connection_free(struct irlap* lap, struct irlap_connection* conn) {
-  irlap_lock_take_reentrant(lap, lap->connection_list_lock);
-  LIST_DELETE(&conn->list);
-  free(conn);
-  irlap_lock_put_reentrant(lap, lap->connection_list_lock);
 }
