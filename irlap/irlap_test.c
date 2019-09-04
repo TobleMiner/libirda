@@ -1,3 +1,6 @@
+#include <errno.h>
+#include <string.h>
+
 #include "irlap_test.h"
 #include "irlap.h"
 
@@ -46,6 +49,58 @@ int irlap_test_request(struct irlap* lap, irlap_connection_addr_t conn_addr, irl
   }
 
 fail_state_locked:
+  irlap_lock_put_reentrant(lap, lap->state_lock);
+  return err;
+}
+
+static int irlap_test_handle_cmd_resp_ndm(struct irlap* lap, union irlap_frame_test* frame, uint8_t* payload, size_t payload_len) {
+  irlap_frame_hdr_t hdr = {
+    .connection_address = IRLAP_FRAME_MAKE_ADDRESS_COMMAND(IRLAP_CONNECTION_ADDRESS_BCAST),
+    .control = IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_RESP_TEST | IRLAP_RESP_FINAL,
+  };  
+  union irlap_frame_test resp_frame = {
+    .src_address = irlap_get_address(lap),
+    .dst_address = frame->src_address,
+  };
+  struct irlap_data_fragment fragments[] = {
+    { resp_frame.data, sizeof(resp_frame.data) },
+    { payload, payload_len },
+  };
+  return irlap_send_frame(lap, &hdr, fragments, ARRAY_LEN(fragments));
+}
+
+int irlap_test_handle_test_cmd(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool poll) {
+  int err;
+  union irlap_frame_test frame;
+
+  if(!poll) {
+    IRLAP_TEST_LOGW(lap, "Got invalid test cmd without poll bit set");
+    return -IRLAP_ERR_POLL;
+  }
+
+  if(len < IRLAP_TEST_FRAME_LEN) {
+    IRLAP_TEST_LOGW(lap, "Test cmd too short, %zu bytes < %zu bytes", len, IRLAP_TEST_FRAME_LEN);
+    return -EINVAL;
+  }
+  
+  memcpy(frame.data, data, IRLAP_TEST_FRAME_LEN);
+  data += IRLAP_TEST_FRAME_LEN;
+  len -= IRLAP_TEST_FRAME_LEN;
+
+  if(!irlap_frame_match_dst(lap, frame.dst_address)) {
+    IRLAP_TEST_LOGD(lap, "Ignoring test cmd not intended for us, dst: %08x", frame.dst_address);
+    return IRLAP_FRAME_NOT_HANDLED;
+  }
+
+  irlap_lock_take_reentrant(lap, lap->state_lock);
+  switch(lap->state) {
+    case IRLAP_STATION_MODE_NDM:
+      err = irlap_test_handle_cmd_resp_ndm(lap, &frame, data, len);
+      break;
+    default:
+      IRLAP_TEST_LOGD(lap, "Not in NDM state, can't respond to test cmd");
+      err = -IRLAP_ERR_STATION_STATE;
+  }
   irlap_lock_put_reentrant(lap, lap->state_lock);
   return err;
 }

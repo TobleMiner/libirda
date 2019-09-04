@@ -27,7 +27,8 @@ typedef uint8_t irlap_control_t;
 #define IRLAP_ERR_NOT_IMPLEMENTED                 (IRLAP_ERR_BASE + 6)
 #define IRLAP_ERR_NO_CONNECTION_ADDRESS_AVAILABLE (IRLAP_ERR_BASE + 7)
 #define IRLAP_ERR_NO_COMMON_PARAMETERS_FOUND      (IRLAP_ERR_BASE + 8)
-#define IRLAP_ERR_NO_CONNECTION                   (IRLAP_ERR_BASE + 8)
+#define IRLAP_ERR_NO_CONNECTION                   (IRLAP_ERR_BASE + 9)
+#define IRLAP_ERR_POLL                            (IRLAP_ERR_BASE + 10)
 
 #define IRLAP_SLOT_TIMEOUT 50
 #define IRLAP_P_TIMEOUT_MAX 500
