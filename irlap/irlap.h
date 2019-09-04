@@ -105,3 +105,13 @@ int irlap_send_frame_single(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* 
 irphy_capability_baudrate_t irlap_get_supported_baudrates(struct irlap* lap);
 
 #define irlap_random_u8(lap, val, min, max) (irhal_random_u8((lap)->phy->hal, (val), (min), (max)))
+
+static inline bool irlap_frame_match_dst(struct irlap* lap, irlap_addr_t dst_address) {
+  if(dst_address == IRLAP_ADDR_BCAST) {
+    return true;
+  }
+  if(dst_address == IRLAP_ADDR_NULL) {
+    return false;
+  }
+  return dst_address == irlap_get_address(lap);
+}
