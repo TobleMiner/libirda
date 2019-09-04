@@ -254,7 +254,11 @@ void irlap_lock_put_reentrant(struct irlap* lap, void* lock) {
 }
 
 irlap_addr_t irlap_get_address(struct irlap* lap) {
-  return lap->address;
+  irlap_addr_t addr;
+  irlap_lock_take_reentrant(lap, lap->state_lock);
+  addr = lap->address;
+  irlap_lock_put_reentrant(lap, lap->state_lock);
+  return addr;
 }
 
 irphy_capability_baudrate_t irlap_get_supported_baudrates(struct irlap* lap) {
