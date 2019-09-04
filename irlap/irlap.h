@@ -3,8 +3,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "irlap.h"
 #include "irlap_defs.h"
+#include "irlap.h"
 
 #include "../util/eventqueue.h"
 
@@ -78,6 +78,11 @@ struct irlap_frame_handler {
 
 typedef void (*irlap_indirection_f)(struct irlap* lap, void* data);
 
+struct irlap_data_fragment {
+  uint8_t* data;
+  size_t len;
+};
+
 int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void* priv);
 void irlap_event_loop(struct irlap* lap);
 int irlap_indirect_call(struct irlap* lap, int type, void* data);
@@ -94,7 +99,8 @@ void irlap_lock_put_reentrant(struct irlap* lap, void* lock);
 irlap_addr_t irlap_get_address(struct irlap* lap);
 int irlap_set_timer(struct irlap* lap, unsigned int timeout_ms, irhal_timer_cb cb, void* priv);
 int irlap_clear_timer(struct irlap* lap, int timer);
-int irlap_send_frame(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* payload, size_t payload_len);
+int irlap_send_frame(struct irlap* lap, irlap_frame_hdr_t* hdr, struct irlap_data_fragment* fragments, size_t num_fragments);
+int irlap_send_frame_single(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* payload, size_t payload_len);
 irphy_capability_baudrate_t irlap_get_supported_baudrates(struct irlap* lap);
 
 #define irlap_random_u8(lap, val, min, max) (irhal_random_u8((lap)->phy->hal, (val), (min), (max)))

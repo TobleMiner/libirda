@@ -80,7 +80,7 @@ int irlap_unitdata_request(struct irlap_unitdata* udata, uint8_t* data, size_t l
     goto fail_timer_locked;
   }
 
-  err = irlap_send_frame(lap, &hdr, data, len);
+  err = irlap_send_frame_single(lap, &hdr, data, len);
   if(err) {
     IRLAP_UDATA_LOGW(udata, "Failed to send unitdata frame: %d", err);
     goto fail_timer_locked;

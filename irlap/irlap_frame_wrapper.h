@@ -43,6 +43,6 @@ typedef enum {
 
 typedef int (*irlap_wrapper_handle_cb_f)(uint8_t* data, size_t len, void * priv);
 
-ssize_t irlap_wrapper_get_wrapped_size(irlap_frame_wrapper_t wrapper, irlap_frame_hdr_t* hdr, uint8_t* data, size_t len, unsigned int num_additional_bof);
-ssize_t irlap_wrapper_wrap(irlap_frame_wrapper_t wrapper, uint8_t* dst, size_t dst_len, irlap_frame_hdr_t* hdr, uint8_t* data, size_t len, unsigned int num_additional_bof);
+ssize_t irlap_wrapper_get_wrapped_size(irlap_frame_wrapper_t wrapper, irlap_frame_hdr_t* hdr, struct irlap_data_fragment* fragments, size_t num_fragments, unsigned int num_additional_bof);
+ssize_t irlap_wrapper_wrap(irlap_frame_wrapper_t wrapper, uint8_t* dst, size_t dst_len, irlap_frame_hdr_t* hdr, struct irlap_data_fragment* fragments, size_t num_fragments, unsigned int num_additional_bof);
 int irlap_wrapper_unwrap(irlap_frame_wrapper_t wrapper, irlap_wrapper_state_t* state, uint8_t* data, size_t len, irlap_wrapper_handle_cb_f cb, void* priv);

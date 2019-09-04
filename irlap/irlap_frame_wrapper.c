@@ -5,6 +5,7 @@
 #include "../util/crc.h"
 
 #include "irlap_frame_wrapper.h"
+#include "irlap.h"
 
 #define LOCAL_TAG "IRDA LAP WRAPPER"
 
@@ -21,24 +22,27 @@ static size_t irlap_wrapper_get_wrapped_size_async_(uint8_t* data, size_t len) {
   return wrapped_size;
 }
 
-static size_t irlap_wrapper_get_wrapped_size_async(irlap_frame_hdr_t* hdr, uint8_t* data, size_t len, unsigned int num_additional_bof) {
+static size_t irlap_wrapper_get_wrapped_size_async(irlap_frame_hdr_t* hdr, struct irlap_data_fragment* fragments, size_t num_fragments, unsigned int num_additional_bof) {
   union {
     uint16_t crc;
     uint8_t data[2];
   } crc;
   size_t wrapped_size;
-  crc.crc = irda_crc_ccitt_init();
-  crc.crc = irda_crc_ccitt_update(crc.crc,hdr->data, sizeof(hdr->data));
-  crc.crc = irda_crc_ccitt_update(crc.crc, data, len);
-  crc.crc = irda_crc_ccitt_final(crc.crc);
   // Additional bofs
   wrapped_size = num_additional_bof;
   // Actual bof
   wrapped_size += 1;
   // Size of header
   wrapped_size += irlap_wrapper_get_wrapped_size_async_(hdr->data, sizeof(hdr->data));
-  // Size of payload
-  wrapped_size += irlap_wrapper_get_wrapped_size_async_(data, len);
+  crc.crc = irda_crc_ccitt_init();
+  crc.crc = irda_crc_ccitt_update(crc.crc,hdr->data, sizeof(hdr->data));
+  while(num_fragments-- > 0) {
+    // Size of payload
+    wrapped_size += irlap_wrapper_get_wrapped_size_async_(fragments->data, fragments->len);
+    crc.crc = irda_crc_ccitt_update(crc.crc, fragments->data, fragments->len);
+    fragments++;
+  }
+  crc.crc = irda_crc_ccitt_final(crc.crc);
   // Size of crc
   wrapped_size += irlap_wrapper_get_wrapped_size_async_(crc.data, sizeof(crc.data));
   // End of frame
@@ -46,10 +50,10 @@ static size_t irlap_wrapper_get_wrapped_size_async(irlap_frame_hdr_t* hdr, uint8
   return wrapped_size;
 }
 
-ssize_t irlap_wrapper_get_wrapped_size(irlap_frame_wrapper_t wrapper, irlap_frame_hdr_t* hdr, uint8_t* data, size_t len, unsigned int num_additional_bof) {
+ssize_t irlap_wrapper_get_wrapped_size(irlap_frame_wrapper_t wrapper, irlap_frame_hdr_t* hdr, struct irlap_data_fragment* fragments, size_t num_fragments, unsigned int num_additional_bof) {
   switch(wrapper) {
     case IRLAP_FRAME_WRAPPER_ASYNC:
-      return irlap_wrapper_get_wrapped_size_async(hdr, data, len, num_additional_bof);
+      return irlap_wrapper_get_wrapped_size_async(hdr, fragments, num_fragments, num_additional_bof);
   }
   return -EINVAL;
 }
@@ -75,7 +79,7 @@ static size_t irlap_wrapper_wrap_async_data(uint8_t* dst, uint8_t* data, size_t 
   return wrapped_size;
 }
 
-static size_t irlap_wrapper_wrap_async(uint8_t* dst, irlap_frame_hdr_t* hdr, uint8_t* data, size_t len, unsigned int num_additional_bof) {
+static size_t irlap_wrapper_wrap_async(uint8_t* dst, irlap_frame_hdr_t* hdr, struct irlap_data_fragment* fragments, size_t num_fragments, unsigned int num_additional_bof) {
   union {
     uint16_t crc;
     uint8_t data[2];
@@ -94,12 +98,15 @@ static size_t irlap_wrapper_wrap_async(uint8_t* dst, irlap_frame_hdr_t* hdr, uin
   // Header
   wrapped_size += irlap_wrapper_wrap_async_data(dst, hdr->data, sizeof(hdr->data), &dst);
   // Payload
-  wrapped_size += irlap_wrapper_wrap_async_data(dst, data, len, &dst);
+  crc.crc = irda_crc_ccitt_init();
+  crc.crc = irda_crc_ccitt_update(crc.crc, hdr->data, sizeof(hdr->data));
+  while(num_fragments-- > 0) {
+    wrapped_size += irlap_wrapper_wrap_async_data(dst, fragments->data, fragments->len, &dst);
+    crc.crc = irda_crc_ccitt_update(crc.crc, fragments->data, fragments->len);
+    fragments++;
+  }
 
   // CRC
-  crc.crc = irda_crc_ccitt_init();
-  crc.crc = irda_crc_ccitt_update(crc.crc,hdr->data, sizeof(hdr->data));
-  crc.crc = irda_crc_ccitt_update(crc.crc, data, len);
   crc.crc = irda_crc_ccitt_final(crc.crc);
   wrapped_size += irlap_wrapper_wrap_async_data(dst, crc.data, sizeof(crc.data), &dst);
 
@@ -110,8 +117,8 @@ static size_t irlap_wrapper_wrap_async(uint8_t* dst, irlap_frame_hdr_t* hdr, uin
   return wrapped_size;
 }
 
-ssize_t irlap_wrapper_wrap(irlap_frame_wrapper_t wrapper, uint8_t* dst, size_t dst_len, irlap_frame_hdr_t* hdr, uint8_t* data, size_t len, unsigned int num_additional_bof) {
-  ssize_t required_len = irlap_wrapper_get_wrapped_size(wrapper, hdr, data, len, num_additional_bof);
+ssize_t irlap_wrapper_wrap(irlap_frame_wrapper_t wrapper, uint8_t* dst, size_t dst_len, irlap_frame_hdr_t* hdr, struct irlap_data_fragment* fragments, size_t num_fragments, unsigned int num_additional_bof) {
+  ssize_t required_len = irlap_wrapper_get_wrapped_size(wrapper, hdr, fragments, num_fragments, num_additional_bof);
   if(required_len < 0) {
     return required_len;
   }
@@ -120,7 +127,7 @@ ssize_t irlap_wrapper_wrap(irlap_frame_wrapper_t wrapper, uint8_t* dst, size_t d
   }
   switch(wrapper) {
     case IRLAP_FRAME_WRAPPER_ASYNC:
-      return irlap_wrapper_wrap_async(dst, hdr, data, len, num_additional_bof);
+      return irlap_wrapper_wrap_async(dst, hdr, fragments, num_fragments, num_additional_bof);
   }
   return -EINVAL;
 }

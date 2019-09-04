@@ -72,7 +72,7 @@ static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc) {
   frame.flags &= IRLAP_XID_FRAME_FLAGS_MASK;
   if(disc->current_slot < disc->num_slots) {
     frame.slot = disc->current_slot;
-    err = irlap_send_frame(lap, &hdr, frame.data, sizeof(frame.data));
+    err = irlap_send_frame_single(lap, &hdr, frame.data, sizeof(frame.data));
     if(err) {
       IRLAP_DISC_LOGE(disc, "Failed to send XID discovery cmd in slot %u: %d", frame.slot, err);
       goto fail;
@@ -85,9 +85,12 @@ static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc) {
     disc->slot_timer = err;
     disc->current_slot++;
   } else {
+    struct irlap_data_fragment fragments[] = {
+      { frame.data, sizeof(frame.data) },
+      { disc->discovery_info, disc->discovery_info_len },
+    };
     frame.slot = IRLAP_XID_SLOT_NUM_FINAL;
-    memcpy(frame.discovery_info, disc->discovery_info, disc->discovery_info_len);
-    err = irlap_send_frame(lap, &hdr, frame.data_info, sizeof(frame.data) + disc->discovery_info_len);
+    err = irlap_send_frame(lap, &hdr, fragments, ARRAY_LEN(fragments));
     if(err) {
       IRLAP_DISC_LOGE(disc, "Failed to send final discovery frame: %d", err);
       goto fail;
@@ -265,7 +268,7 @@ static int irlap_discovery_send_xid_response_discovery(struct irlap_discovery* d
   frame.dst_address = query_frame->src_address;
   frame.flags = query_frame->flags & IRLAP_XID_FRAME_FLAGS_MASK;
   frame.slot = query_frame->slot;
-  err = irlap_send_frame(lap, &hdr, frame.data_info, sizeof(frame.data));
+  err = irlap_send_frame_single(lap, &hdr, frame.data, sizeof(frame.data));
   if(err) {
     IRLAP_DISC_LOGE(disc, "Failed to send discovery response: %d", err);
     return err;

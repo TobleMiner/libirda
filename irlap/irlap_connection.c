@@ -168,7 +168,7 @@ int irlap_connection_send_snrm_cmd(struct irlap_connection* conn) {
 		IRLAP_CONNECTION_LOGE(conn, "Failed to write connection parameters to snrm cmd frame");
 		return (int)data_len;
 	}
-	return irlap_send_frame(lap, &hdr, frame.data_params, sizeof(frame.data) + data_len);
+	return irlap_send_frame_single(lap, &hdr, frame.data_params, sizeof(frame.data) + data_len);
 }
 
 #define SUPERVISORY_NR(nr) (((nr) << 5) & IRLAP_SUPERVISORY_NR_MASK)
@@ -178,7 +178,7 @@ int irlap_connection_send_rr_cmd(struct irlap_connection* conn, uint8_t nr) {
     .connection_address = IRLAP_FRAME_MAKE_ADDRESS_COMMAND(conn->connection_addr),
     .control = IRLAP_FRAME_FORMAT_SUPERVISORY | IRLAP_CMD_RR | IRLAP_CMD_POLL | SUPERVISORY_NR(nr),
   };
-	return irlap_send_frame(conn->lap, &hdr, NULL, 0);
+	return irlap_send_frame_single(conn->lap, &hdr, NULL, 0);
 }
 
 uint32_t irlap_connection_get_baudrate(struct irlap_connection* conn) {

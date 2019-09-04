@@ -4,6 +4,7 @@
 
 struct irlap;
 struct irlap_connection;
+struct irlap_data_fragment;
 
 typedef uint8_t  irlap_version_t;
 typedef uint32_t irlap_addr_t;
