@@ -24,6 +24,7 @@ struct irlap;
 #include "irlap_unitdata.h"
 #include "irlap_connect.h"
 #include "irlap_frame_wrapper.h"
+#include "irlap_test.h"
 #include "../irphy/irphy.h"
 #include "../util/list.h"
 
