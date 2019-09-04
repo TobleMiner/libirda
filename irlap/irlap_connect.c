@@ -35,7 +35,7 @@ fail:
 
 void irlap_connect_free(struct irlap_connect* conn) {
   struct irlap* lap = IRLAP_CONNECT_TO_IRLAP(conn);
-  irlap_lock_free(lap, &conn->connect_lock);  
+  irlap_lock_free(lap, conn->connect_lock);  
 }
 
 static int irlap_connect_request_sniff(struct irlap_connect* conn, irlap_addr_t target_addr, struct irlap_connect_req_qos* qos) {
@@ -63,12 +63,12 @@ static void sniff_snrm_p_timeout(void* priv) {
   struct irlap* lap = conn->lap;
   irlap_lock_take_reentrant(lap, lap->state_lock);
   lap->state = IRLAP_STATION_MODE_NDM;
-  irlap_lock_take_reentrant(lap, &lap->connection_lock);
+  irlap_lock_take_reentrant(lap, lap->connection_lock);
   if(lap->services.disconnect.indication) {
     lap->services.disconnect.indication(conn->connection_addr, NULL, lap->priv);
   }
   irlap_connection_free(conn);
-  irlap_lock_put_reentrant(lap, &lap->connection_lock);
+  irlap_lock_put_reentrant(lap, lap->connection_lock);
   irlap_lock_put_reentrant(lap, lap->state_lock);  
 }
 
@@ -95,14 +95,14 @@ int irlap_connect_handle_sniff_xid_req_sconn(struct irlap* lap, irlap_addr_t add
   struct irlap_connection* connection;
   int err = IRLAP_FRAME_HANDLED;
   
-  irlap_lock_take_reentrant(lap, &conn->connect_lock);
+  irlap_lock_take_reentrant(lap, conn->connect_lock);
   if(addr != conn->current_target_addr) {
     IRLAP_CONN_LOGD(conn, "Ignoring sniff xid response from unexpected address %08x", addr);
     err = IRLAP_FRAME_NOT_HANDLED;
     goto fail_connect_locked;
   }
 
-  irlap_lock_take_reentrant(lap, &lap->connection_lock);
+  irlap_lock_take_reentrant(lap, lap->connection_lock);
   err = irlap_connection_alloc(lap, addr, &connection);
   if(err) {
     IRLAP_CONN_LOGE(conn, "Failed to allocate connection");
@@ -119,16 +119,16 @@ int irlap_connect_handle_sniff_xid_req_sconn(struct irlap* lap, irlap_addr_t add
 
   lap->state = IRLAP_STATION_MODE_SSETUP;
 
-  irlap_lock_put_reentrant(lap, &lap->connection_lock);
-  irlap_lock_put_reentrant(lap, &conn->connect_lock);
+  irlap_lock_put_reentrant(lap, lap->connection_lock);
+  irlap_lock_put_reentrant(lap, conn->connect_lock);
   return IRLAP_FRAME_HANDLED;
 
 fail_connection_alloc:
   irlap_connection_free(connection);
 fail_connections_locked:
-  irlap_lock_put_reentrant(lap, &lap->connection_lock);
+  irlap_lock_put_reentrant(lap, lap->connection_lock);
 fail_connect_locked:
-  irlap_lock_put_reentrant(lap, &conn->connect_lock);
+  irlap_lock_put_reentrant(lap, conn->connect_lock);
   return err;
 }
 

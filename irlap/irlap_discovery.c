@@ -37,7 +37,7 @@ fail:
 
 void irlap_discovery_free(struct irlap_discovery* disc) {
   struct irlap* lap = IRLAP_DISCOVERY_TO_IRLAP(disc);
-  irlap_lock_free(lap, &disc->discovery_log_final_lock);
+  irlap_lock_free(lap, disc->discovery_log_final_lock);
 }
 
 static void irlap_slot_timeout(void* priv) {

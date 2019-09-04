@@ -105,11 +105,11 @@ fail_eventqueue:
 fail_discovery:
   irlap_discovery_free(&lap->discovery);
 fail_connection_lock:
-  irlap_lock_free_reentrant(lap, &lap->connection_lock);
+  irlap_lock_free_reentrant(lap, lap->connection_lock);
 fail_state_lock:
-  irlap_lock_free_reentrant(lap, &lap->state_lock);
+  irlap_lock_free_reentrant(lap, lap->state_lock);
 fail_phy_lock:
-  irlap_lock_free_reentrant(lap, &lap->phy_lock);
+  irlap_lock_free_reentrant(lap, lap->phy_lock);
 fail:
   return err;
 }
@@ -157,7 +157,7 @@ int irlap_send_frame(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* payload
   uint8_t* frame_data;
   struct irlap_connection* conn;
 
-  irlap_lock_take_reentrant(lap, &lap->connection_lock);
+  irlap_lock_take_reentrant(lap, lap->connection_lock);
   conn = irlap_connection_get(lap, IRLAP_CONNECTION_ADDRESS_MASK_CMD_BIT(hdr->connection_address));
   unsigned int additional_bof = irlap_get_num_extra_bof(lap, conn);
   if(conn) {
@@ -165,7 +165,7 @@ int irlap_send_frame(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* payload
   } else {
     irphy_set_baudrate(lap->phy, IRLAP_BAUDRATE_CONTENTION);
   }
-  irlap_lock_put_reentrant(lap, &lap->connection_lock);
+  irlap_lock_put_reentrant(lap, lap->connection_lock);
   ssize_t frame_size = irlap_wrapper_get_wrapped_size(IRLAP_FRAME_WRAPPER_ASYNC, hdr, payload, payload_len, additional_bof);
   if(frame_size < 0) {
     err = frame_size;
@@ -277,7 +277,7 @@ int irlap_handle_frame(uint8_t* data, size_t len, void* priv) {
   data += sizeof(frame_hdr.data);
   len -= sizeof(frame_hdr.data);
   
-  irlap_lock_take_reentrant(lap, &lap->connection_lock);
+  irlap_lock_take_reentrant(lap, lap->connection_lock);
   conn = irlap_connection_get(lap, IRLAP_CONNECTION_ADDRESS_MASK_CMD_BIT(frame_hdr.connection_address));
   IRLAP_LOGV(lap, "Frame control: %02x", frame_hdr.control);
   while(hndlr->handle_cmd != NULL || hndlr->handle_resp != NULL) {
@@ -300,7 +300,7 @@ next:
     hndlr++;
   }
 out_connections_locked:
-  irlap_lock_put_reentrant(lap, &lap->connection_lock);
+  irlap_lock_put_reentrant(lap, lap->connection_lock);
   return 0;
 }
 
