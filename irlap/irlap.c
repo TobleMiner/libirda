@@ -217,7 +217,7 @@ int irlap_lock_alloc(struct irlap* lap, void** lock) {
 }
 
 void irlap_lock_free(struct irlap* lap, void* lock) {
-  irhal_lock_alloc(lap->phy->hal, lock);
+  irhal_lock_free(lap->phy->hal, lock);
 }
 
 void irlap_lock_take(struct irlap* lap, void* lock) {
@@ -233,7 +233,7 @@ int irlap_lock_alloc_reentrant(struct irlap* lap, void** lock) {
 }
 
 void irlap_lock_free_reentrant(struct irlap* lap, void* lock) {
-  irhal_lock_alloc_reentrant(lap->phy->hal, lock);
+  irhal_lock_free_reentrant(lap->phy->hal, lock);
 }
 
 void irlap_lock_take_reentrant(struct irlap* lap, void* lock) {
