@@ -5,6 +5,8 @@
 
 #include "irlap.h"
 #include "irlap_frame_wrapper.h"
+#include "irlap_connect.h"
+#include "irlap_connection.h"
 #include "../irhal/irhal.h"
 #include "../util/crc.h"
 #include "irlap_discovery.h"
@@ -21,6 +23,8 @@ static struct irlap_frame_handler frame_handlers[] = {
   { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_CMD_XID, irlap_discovery_handle_xid_cmd, NULL },
   { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_RESP_XID, NULL, irlap_discovery_handle_xid_resp },
   { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_CMD_UI, irlap_unitdata_handle_ui_cmd, NULL },
+  { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_RESP_UA, NULL, irlap_connect_handle_ua_resp },
+  { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_RESP_DM, NULL, irlap_connect_handle_dm_resp },
   { 0, NULL, NULL }
 };
 
@@ -38,7 +42,7 @@ int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void
   lap->ops = *ops;
   lap->priv = priv;
 
-  INIT_LIST_HEAD(&lap->connections);
+  INIT_LIST_HEAD(lap->connections);
 
   err = irlap_regenerate_address(lap);
   if(err) {
@@ -140,18 +144,28 @@ int irlap_regenerate_address(struct irlap* lap) {
   return 0;
 }
 
-static unsigned int irlap_get_num_extra_bof(struct irlap* lap, irlap_frame_hdr_t* hdr) {
-  if(IRLAP_STATE_IS_CONTENTION(lap->state)) {
+static unsigned int irlap_get_num_extra_bof(struct irlap* lap, struct irlap_connection* conn) {
+  if(!conn || !conn->connection_state) {
     return IRLAP_FRAME_ADDITIONAL_BOF_CONTENTION;
   }
 
-  return lap->additional_bof;
+  return irlap_connection_get_num_additional_bofs(conn);
 }
 
 int irlap_send_frame(struct irlap* lap, irlap_frame_hdr_t* hdr, uint8_t* payload, size_t payload_len) {
   int err;
   uint8_t* frame_data;
-  unsigned int additional_bof = irlap_get_num_extra_bof(lap, hdr);
+  struct irlap_connection* conn;
+
+  irlap_lock_take_reentrant(lap, &lap->connection_lock);
+  conn = irlap_connection_get(lap, IRLAP_CONNECTION_ADDRESS_MASK_CMD_BIT(hdr->connection_address));
+  unsigned int additional_bof = irlap_get_num_extra_bof(lap, conn);
+  if(conn) {
+    irphy_set_baudrate(lap->phy, irlap_connection_get_baudrate(conn));
+  } else {
+    irphy_set_baudrate(lap->phy, IRLAP_BAUDRATE_CONTENTION);
+  }
+  irlap_lock_put_reentrant(lap, &lap->connection_lock);
   ssize_t frame_size = irlap_wrapper_get_wrapped_size(IRLAP_FRAME_WRAPPER_ASYNC, hdr, payload, payload_len, additional_bof);
   if(frame_size < 0) {
     err = frame_size;
@@ -252,6 +266,7 @@ int irlap_clear_timer(struct irlap* lap, int timer) {
 int irlap_handle_frame(uint8_t* data, size_t len, void* priv) {
   struct irlap_frame_handler* hndlr = frame_handlers;
   struct irlap* lap = priv;
+  struct irlap_connection* conn;
   IRLAP_LOGD(lap, "Got unwrapped frame with %zu bytes", len);
   irlap_frame_hdr_t frame_hdr;
   if(len < sizeof(frame_hdr.data)) {
@@ -262,6 +277,8 @@ int irlap_handle_frame(uint8_t* data, size_t len, void* priv) {
   data += sizeof(frame_hdr.data);
   len -= sizeof(frame_hdr.data);
   
+  irlap_lock_take_reentrant(lap, &lap->connection_lock);
+  conn = irlap_connection_get(lap, IRLAP_CONNECTION_ADDRESS_MASK_CMD_BIT(frame_hdr.connection_address));
   IRLAP_LOGV(lap, "Frame control: %02x", frame_hdr.control);
   while(hndlr->handle_cmd != NULL || hndlr->handle_resp != NULL) {
     if(IRLAP_FRAME_MASK_POLL_FINAL(frame_hdr.control) != IRLAP_FRAME_MASK_POLL_FINAL(hndlr->control)) {
@@ -269,19 +286,21 @@ int irlap_handle_frame(uint8_t* data, size_t len, void* priv) {
     }
     if(IRLAP_FRAME_IS_COMMAND(&frame_hdr) && hndlr->handle_cmd != NULL) {
       bool poll = IRLAP_FRAME_IS_POLL_FINAL(&frame_hdr);
-      if(hndlr->handle_cmd(lap, NULL, data, len, poll) == IRLAP_FRAME_HANDLED) {
-        return 0;
+      if(hndlr->handle_cmd(lap, conn, data, len, poll) == IRLAP_FRAME_HANDLED) {
+        goto out_connections_locked;
       }
     }
     if(IRLAP_FRAME_IS_RESPONSE(&frame_hdr) && hndlr->handle_resp != NULL) {
       bool final = IRLAP_FRAME_IS_POLL_FINAL(&frame_hdr);
-      if(hndlr->handle_resp(lap, NULL, data, len, final) == IRLAP_FRAME_HANDLED) {
-        return 0;
+      if(hndlr->handle_resp(lap, conn, data, len, final) == IRLAP_FRAME_HANDLED) {
+        goto out_connections_locked;
       }
     }
 next:
     hndlr++;
   }
+out_connections_locked:
+  irlap_lock_put_reentrant(lap, &lap->connection_lock);
   return 0;
 }
 

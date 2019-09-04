@@ -115,7 +115,7 @@ ssize_t irlap_negotiation_update_params(irlap_negotiation_params_t* params, uint
   return bytes_processed;
 }
 
-ssize_t irlap_negotiation_populate_params(irlap_negotiation_params_t* params, uint8_t* data, size_t len) {
+ssize_t irlap_negotiation_populate_params(uint8_t* data, size_t len, irlap_negotiation_params_t* params) {
   size_t len_populated = 0;
   ssize_t err;
   int i;

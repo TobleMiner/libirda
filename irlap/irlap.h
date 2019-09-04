@@ -31,8 +31,6 @@ struct irlap_ops {
   struct irlap_discovery_ops discovery;
 };
 
-typedef struct list_head irlap_connection_list_t;
-
 struct irlap {
   void* priv;
   struct irphy* phy;
@@ -63,6 +61,11 @@ struct irlap {
   struct irlap_unitdata unitdata;
 
   struct irlap_connect connect;
+
+  struct {
+    struct irlap_service_disconnect disconnect;
+    struct irlap_service_connect connect;
+  } services;
 };
 
 typedef int (*irlap_frame_handler_f)(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool pf);

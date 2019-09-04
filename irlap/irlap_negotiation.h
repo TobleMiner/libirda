@@ -125,9 +125,10 @@ struct irlap_negotiation_values {
 typedef struct irlap_negotiation_values irlap_negotiation_values_t;
 
 ssize_t irlap_negotiation_update_params(irlap_negotiation_params_t* params, uint8_t* data, size_t len);
-ssize_t irlap_negotiation_populate_params(irlap_negotiation_params_t* params, uint8_t* data, size_t len);
+ssize_t irlap_negotiation_populate_params(uint8_t* data, size_t len, irlap_negotiation_params_t* params);
 int irlap_negotiation_merge_params(irlap_negotiation_params_t* a, irlap_negotiation_params_t* b);
 int irlap_negotiation_translate_params_to_values(irlap_negotiation_values_t* values, irlap_negotiation_params_t* params);
 void irlap_negotiation_load_default_params(irlap_negotiation_params_t* params);
 void irlap_negotiation_load_default_values(irlap_negotiation_values_t* values);
 int irlap_negotiation_translate_values_to_params(irlap_negotiation_params_t* params, irlap_negotiation_values_t* values, uint16_t baudrates);
+
