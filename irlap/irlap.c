@@ -293,6 +293,10 @@ int irlap_handle_frame(uint8_t* data, size_t len, void* priv) {
   
   irlap_lock_take_reentrant(lap, lap->connection_lock);
   conn = irlap_connection_get(lap, IRLAP_CONNECTION_ADDRESS_MASK_CMD_BIT(frame_hdr.connection_address));
+  if(!conn && IRLAP_CONNECTION_ADDRESS_MASK_CMD_BIT(frame_hdr.connection_address) != IRLAP_CONNECTION_ADDRESS_BCAST) {
+    IRLAP_LOGD(lap, "Ignoring frame for unknown connection %02x", IRLAP_CONNECTION_ADDRESS_MASK_CMD_BIT(frame_hdr.connection_address));
+    goto out_connections_locked;
+  }
   IRLAP_LOGV(lap, "Frame control: %02x", frame_hdr.control);
   while(hndlr->handle_cmd != NULL || hndlr->handle_resp != NULL) {
     if(IRLAP_FRAME_MASK_POLL_FINAL(frame_hdr.control) != IRLAP_FRAME_MASK_POLL_FINAL(hndlr->control)) {
