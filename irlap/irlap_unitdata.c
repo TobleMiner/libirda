@@ -110,8 +110,8 @@ int irlap_unitdata_handle_ui_cmd(struct irlap* lap, struct irlap_connection* con
     return -IRLAP_ERR_NOT_IMPLEMENTED;
   }
 
-  if(udata->ops.indication) {
-    udata->ops.indication(data, len, lap->priv);
+  if(lap->services.unitdata.indication) {
+    lap->services.unitdata.indication(data, len, lap->priv);
   }
 
   return IRLAP_FRAME_HANDLED;

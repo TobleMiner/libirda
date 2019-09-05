@@ -9,13 +9,12 @@
 
 typedef void (*irlap_unitdata_indication_f)(uint8_t* data, size_t len, void* priv);
 
-struct irlap_unitdata_ops {
+struct irlap_service_unitdata {
   irlap_unitdata_indication_f indication;
 };
 
 struct irlap_unitdata {
   int ui_timer;
-  struct irlap_unitdata_ops ops;
   void* ui_timer_lock;
 };
 

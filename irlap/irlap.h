@@ -61,6 +61,7 @@ struct irlap {
   struct {
     struct irlap_service_discovery discovery;
     struct irlap_service_new_address new_address;
+    struct irlap_service_unitdata unitdata;
     struct irlap_service_disconnect disconnect;
     struct irlap_service_connect connect;
     struct irlap_service_test test;
