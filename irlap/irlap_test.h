@@ -23,3 +23,4 @@ union irlap_frame_test {
 
 int irlap_test_request(struct irlap* lap, irlap_connection_addr_t conn_addr, irlap_addr_t dst_address, uint8_t* payload, size_t payload_len);
 int irlap_test_handle_test_cmd(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool poll);
+int irlap_test_handle_test_resp(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool final);

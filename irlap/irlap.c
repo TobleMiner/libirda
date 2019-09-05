@@ -26,6 +26,7 @@ static struct irlap_frame_handler frame_handlers[] = {
   { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_RESP_UA, NULL, irlap_connect_handle_ua_resp },
   { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_RESP_DM, NULL, irlap_connect_handle_dm_resp },
   { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_CMD_TEST, irlap_test_handle_test_cmd, NULL },
+  { IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_RESP_TEST, NULL, irlap_test_handle_test_resp },
   { 0, NULL, NULL }
 };
 

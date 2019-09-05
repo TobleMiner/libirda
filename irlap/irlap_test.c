@@ -53,7 +53,7 @@ fail_state_locked:
   return err;
 }
 
-static int irlap_test_handle_cmd_resp_ndm(struct irlap* lap, union irlap_frame_test* frame, uint8_t* payload, size_t payload_len) {
+static int handle_test_cmd_ndm(struct irlap* lap, union irlap_frame_test* frame, uint8_t* payload, size_t payload_len) {
   irlap_frame_hdr_t hdr = {
     .connection_address = IRLAP_FRAME_MAKE_ADDRESS_COMMAND(IRLAP_CONNECTION_ADDRESS_BCAST),
     .control = IRLAP_FRAME_FORMAT_UNNUMBERED | IRLAP_RESP_TEST | IRLAP_RESP_FINAL,
@@ -69,6 +69,24 @@ static int irlap_test_handle_cmd_resp_ndm(struct irlap* lap, union irlap_frame_t
   return irlap_send_frame(lap, &hdr, fragments, ARRAY_LEN(fragments));
 }
 
+static int verify_test_frame(struct irlap* lap, union irlap_frame_test* frame, uint8_t** data, size_t* len) {
+  if(*len < IRLAP_TEST_FRAME_LEN) {
+    IRLAP_TEST_LOGW(lap, "Test frame too short, %zu bytes < %zu bytes", len, IRLAP_TEST_FRAME_LEN);
+    return -EINVAL;
+  }
+
+  memcpy(frame->data, *data, IRLAP_TEST_FRAME_LEN);
+  *data += IRLAP_TEST_FRAME_LEN;
+  *len -= IRLAP_TEST_FRAME_LEN;
+
+  if(!irlap_frame_match_dst(lap, frame->dst_address)) {
+    IRLAP_TEST_LOGD(lap, "Ignoring test frame not intended for us, dst: %08x", frame->dst_address);
+    return IRLAP_FRAME_NOT_HANDLED;
+  }
+
+  return 0;
+}
+
 int irlap_test_handle_test_cmd(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool poll) {
   int err;
   union irlap_frame_test frame;
@@ -78,24 +96,49 @@ int irlap_test_handle_test_cmd(struct irlap* lap, struct irlap_connection* conn,
     return -IRLAP_ERR_POLL;
   }
 
-  if(len < IRLAP_TEST_FRAME_LEN) {
-    IRLAP_TEST_LOGW(lap, "Test cmd too short, %zu bytes < %zu bytes", len, IRLAP_TEST_FRAME_LEN);
-    return -EINVAL;
-  }
-  
-  memcpy(frame.data, data, IRLAP_TEST_FRAME_LEN);
-  data += IRLAP_TEST_FRAME_LEN;
-  len -= IRLAP_TEST_FRAME_LEN;
-
-  if(!irlap_frame_match_dst(lap, frame.dst_address)) {
-    IRLAP_TEST_LOGD(lap, "Ignoring test cmd not intended for us, dst: %08x", frame.dst_address);
-    return IRLAP_FRAME_NOT_HANDLED;
+  err = verify_test_frame(lap, &frame, &data, &len);
+  if(err) {
+    return err;
   }
 
   irlap_lock_take_reentrant(lap, lap->state_lock);
   switch(lap->state) {
     case IRLAP_STATION_MODE_NDM:
-      err = irlap_test_handle_cmd_resp_ndm(lap, &frame, data, len);
+      err = handle_test_cmd_ndm(lap, &frame, data, len);
+      break;
+    default:
+      IRLAP_TEST_LOGD(lap, "Not in NDM state, can't respond to test cmd");
+      err = -IRLAP_ERR_STATION_STATE;
+  }
+  irlap_lock_put_reentrant(lap, lap->state_lock);
+  return err;
+}
+
+static int handle_test_resp_ndm(struct irlap* lap, union irlap_frame_test* frame, uint8_t* data, size_t len) {
+  if(lap->services.test.confirm) {
+    lap->services.test.confirm(frame->src_address, data, len, lap->priv);
+  }
+  return IRLAP_FRAME_HANDLED;
+}
+
+int irlap_test_handle_test_resp(struct irlap* lap, struct irlap_connection* conn, uint8_t* data, size_t len, bool final) {
+  int err;
+  union irlap_frame_test frame;
+
+  if(!final) {
+    IRLAP_TEST_LOGW(lap, "Got invalid test resp without final bit set");
+    return -IRLAP_ERR_POLL;
+  }
+
+  err = verify_test_frame(lap, &frame, &data, &len);
+  if(err) {
+    return err;
+  }
+
+  irlap_lock_take_reentrant(lap, lap->state_lock);
+  switch(lap->state) {
+    case IRLAP_STATION_MODE_NDM:
+      err = handle_test_resp_ndm(lap, &frame, data, len);
       break;
     default:
       IRLAP_TEST_LOGD(lap, "Not in NDM state, can't respond to test cmd");
