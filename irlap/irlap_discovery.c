@@ -101,12 +101,12 @@ static int irlap_discovery_send_xid_cmd(struct irlap_discovery* disc) {
     lap->state = IRLAP_STATION_MODE_NDM;
     irlap_lock_put_reentrant(lap, lap->state_lock);
     if(disc->conflict_address == IRLAP_ADDR_NULL) {
-      if(disc->discovery_ops.confirm) {
-        disc->discovery_ops.confirm(IRLAP_DISCOVERY_RESULT_OK, &disc->discovery_log_final, lap->priv);
+      if(lap->services.discovery.confirm) {
+        lap->services.discovery.confirm(IRLAP_DISCOVERY_RESULT_OK, &disc->discovery_log_final, lap->priv);
       }
     } else {
-      if(disc->new_address_ops.confirm) {
-        disc->new_address_ops.confirm(IRLAP_DISCOVERY_RESULT_OK, &disc->discovery_log_final, lap->priv);
+      if(lap->services.new_address.confirm) {
+        lap->services.new_address.confirm(IRLAP_DISCOVERY_RESULT_OK, &disc->discovery_log_final, lap->priv);
       }
     }
     {
@@ -132,12 +132,12 @@ void irlap_discovery_indirect_busy(struct irlap* lap, void* data) {
   bool is_null_addr = !!(int)data;
   struct irlap_discovery* disc = &lap->discovery;
   if(is_null_addr) {
-    if(disc->discovery_ops.confirm) {
-      disc->discovery_ops.confirm(IRLAP_DISCOVERY_RESULT_MEDIA_BUSY, NULL, lap->priv);
+    if(lap->services.discovery.confirm) {
+      lap->services.discovery.confirm(IRLAP_DISCOVERY_RESULT_MEDIA_BUSY, NULL, lap->priv);
     }
   } else {
-    if(disc->new_address_ops.confirm) {
-      disc->new_address_ops.confirm(IRLAP_DISCOVERY_RESULT_MEDIA_BUSY, NULL, lap->priv);
+    if(lap->services.new_address.confirm) {
+      lap->services.new_address.confirm(IRLAP_DISCOVERY_RESULT_MEDIA_BUSY, NULL, lap->priv);
     }
   }
 }
@@ -328,9 +328,9 @@ static int irlap_discovery_handle_xid_cmd_discovery_additional(struct irlap_disc
     };
     irlap_clear_timer(lap, disc->query_timer);
     lap->state = IRLAP_STATION_MODE_NDM;
-    if(disc->discovery_ops.indication) {
+    if(lap->services.discovery.indication) {
       memcpy(log.discovery_info.data, frame->discovery_info, discovery_info_len);
-      disc->discovery_ops.indication(&log, lap->priv);
+      lap->services.discovery.indication(&log, lap->priv);
     }
     return IRLAP_FRAME_HANDLED;
   }
@@ -417,8 +417,8 @@ static int irlap_discovery_handle_xid_resp_discovery_ndm(struct irlap_discovery*
   log.discovery_info.len = discovery_info_len;
   memcpy(log.discovery_info.data, frame->discovery_info, discovery_info_len);
 
-  if(disc->discovery_ops.indication) {
-    disc->discovery_ops.indication(&log, lap->priv);
+  if(lap->services.discovery.indication) {
+    lap->services.discovery.indication(&log, lap->priv);
   }
 
   return IRLAP_FRAME_HANDLED;

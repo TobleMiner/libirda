@@ -28,14 +28,9 @@ struct irlap;
 #include "../irphy/irphy.h"
 #include "../util/list.h"
 
-struct irlap_ops {
-  struct irlap_discovery_ops discovery;
-};
-
 struct irlap {
   void* priv;
   struct irphy* phy;
-  struct irlap_ops ops;
 
   irlap_addr_t address;
 
@@ -64,6 +59,8 @@ struct irlap {
   struct irlap_connect connect;
 
   struct {
+    struct irlap_service_discovery discovery;
+    struct irlap_service_new_address new_address;
     struct irlap_service_disconnect disconnect;
     struct irlap_service_connect connect;
     struct irlap_service_test test;
@@ -85,7 +82,7 @@ struct irlap_data_fragment {
   size_t len;
 };
 
-int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void* priv);
+int irlap_init(struct irlap* lap, struct irphy* phy, void* priv);
 void irlap_event_loop(struct irlap* lap);
 int irlap_indirect_call(struct irlap* lap, int type, void* data);
 int irlap_regenerate_address(struct irlap* lap);

@@ -37,11 +37,10 @@ static irlap_indirection_f event_indirections[] = {
 static int irlap_media_busy(struct irlap* lap);
 static void irlap_handle_irda_event(struct irphy* phy, irphy_event_t event, void* priv);
 
-int irlap_init(struct irlap* lap, struct irphy* phy, struct irlap_ops* ops, void* priv) {
+int irlap_init(struct irlap* lap, struct irphy* phy, void* priv) {
   int err;
   memset(lap, 0, sizeof(*lap));
   lap->phy = phy;
-  lap->ops = *ops;
   lap->priv = priv;
 
   INIT_LIST_HEAD(lap->connections);

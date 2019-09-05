@@ -34,23 +34,21 @@ struct irlap_discovery_log_entry {
 };
 
 
-typedef int (*irlap_discovery_indication)(struct irlap_discovery_log* log, void* priv);
-typedef int (*irlap_discovery_confirm)(irlap_discovery_result_t result, irlap_discovery_log_list_t* list, void* priv);
+typedef int (*irlap_discovery_indication_f)(struct irlap_discovery_log* log, void* priv);
+typedef int (*irlap_discovery_confirm_f)(irlap_discovery_result_t result, irlap_discovery_log_list_t* list, void* priv);
 
-struct irlap_discovery_ops {
-  irlap_discovery_indication indication;
-  irlap_discovery_confirm confirm;
+struct irlap_service_discovery {
+  irlap_discovery_indication_f indication;
+  irlap_discovery_confirm_f confirm;
 };
 
-typedef int (*irlap_new_address_confirm)(irlap_discovery_result_t result, irlap_discovery_log_list_t* list, void* priv);
+typedef int (*irlap_new_address_confirm_f)(irlap_discovery_result_t result, irlap_discovery_log_list_t* list, void* priv);
 
-struct irlap_new_address_ops {
-  irlap_new_address_confirm confirm;
+struct irlap_service_new_address {
+  irlap_new_address_confirm_f confirm;
 };
 
 struct irlap_discovery {
-  struct irlap_discovery_ops discovery_ops;
-  struct irlap_new_address_ops new_address_ops;
   uint8_t num_slots;
   uint8_t current_slot;
   int slot_timer;
