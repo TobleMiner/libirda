@@ -300,14 +300,18 @@ int irlap_handle_frame(uint8_t* data, size_t len, void* priv) {
   IRLAP_LOGV(lap, "Frame control: %02x", frame_hdr.control);
   while(hndlr->handle_cmd != NULL || hndlr->handle_resp != NULL) {
     if(IRLAP_FRAME_MASK_POLL_FINAL(frame_hdr.control) != IRLAP_FRAME_MASK_POLL_FINAL(hndlr->control)) {
+      IRLAP_LOGV(lap, "Frame control %02x != %02x", IRLAP_FRAME_MASK_POLL_FINAL(frame_hdr.control), IRLAP_FRAME_MASK_POLL_FINAL(hndlr->control));
       goto next;
     }
+    IRLAP_LOGV(lap, "Frame control %02x == %02x", IRLAP_FRAME_MASK_POLL_FINAL(frame_hdr.control), IRLAP_FRAME_MASK_POLL_FINAL(hndlr->control));
+    IRLAP_LOGV(lap, "Frame cmd: %s, has cmd handler: %s", BOOL_TO_STR(IRLAP_FRAME_IS_COMMAND(&frame_hdr)), BOOL_TO_STR(hndlr->handle_cmd));
     if(IRLAP_FRAME_IS_COMMAND(&frame_hdr) && hndlr->handle_cmd != NULL) {
       bool poll = IRLAP_FRAME_IS_POLL_FINAL(&frame_hdr);
       if(hndlr->handle_cmd(lap, conn, data, len, poll) == IRLAP_FRAME_HANDLED) {
         goto out_connections_locked;
       }
     }
+    IRLAP_LOGV(lap, "Frame resp: %s, has resp handler: %s", BOOL_TO_STR(IRLAP_FRAME_IS_RESPONSE(&frame_hdr)), BOOL_TO_STR(hndlr->handle_resp));
     if(IRLAP_FRAME_IS_RESPONSE(&frame_hdr) && hndlr->handle_resp != NULL) {
       bool final = IRLAP_FRAME_IS_POLL_FINAL(&frame_hdr);
       if(hndlr->handle_resp(lap, conn, data, len, final) == IRLAP_FRAME_HANDLED) {
