@@ -18,4 +18,6 @@
 
 #define ARRAY_LEN(arr) (sizeof((arr)) / sizeof(*(arr)))
 
+#define BOOL_TO_STR(x) ((x) ? "true" : "false")
+
 void hexdump(uint8_t* data, size_t len);
